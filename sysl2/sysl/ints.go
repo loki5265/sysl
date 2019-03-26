@@ -76,24 +76,12 @@ func formatAppName(appNames []string) string {
 	return strings.Join(appNames, " :: ")
 }
 
-func validatePatterns(matched string, patterns []string) bool {
-	isValid := true
-	for _, pattern := range patterns {
-		if pattern == matched {
-			isValid = false
-			break
-		}
-	}
-
-	return isValid
-}
-
 func checkDependencies(module *sysl.Module) []*AppDependency {
 	var errStr string
 	deps := []*AppDependency{}
 	errors := []string{}
 	apps := module.GetApps()
-	for appname, app := range module.GetApps() {
+	for appname, app := range apps {
 		for epname, endpoint := range app.GetEndpoints() {
 			calls := []*sysl.Call{}
 			makeCalls(endpoint.GetStmt(), calls)
@@ -104,7 +92,7 @@ func checkDependencies(module *sysl.Module) []*AppDependency {
 					errStr = fmt.Sprintf("%s <- %s: calls non-existent app %s", appname, epname, targetName)
 					errors = append(errors, errStr)
 				} else {
-					isValid := validatePatterns("abstract", extractApplicationAttr("patterns", targetApp))
+					isValid := !hasPattern("abstract", extractApplicationAttr("patterns", targetApp))
 					if !isValid {
 						panic(fmt.Sprintf("call target '%s' must not be ~abstract", targetName))
 					}
@@ -129,7 +117,7 @@ func checkDependencies(module *sysl.Module) []*AppDependency {
 	return deps
 }
 
-func extractAppNames(dep *AppDependency) []string {
+func (dep *AppDependency) extractAppNames() []string {
 	apps := []string{}
 	apps = append(apps, dep.Self.Name)
 	apps = append(apps, dep.Target.Name)
@@ -137,7 +125,7 @@ func extractAppNames(dep *AppDependency) []string {
 	return apps
 }
 
-func extractEndpoints(dep *AppDependency) []string {
+func (dep *AppDependency) extractEndpoints() []string {
 	eps := []string{}
 	eps = append(eps, dep.Self.Endpoint)
 	eps = append(eps, dep.Target.Endpoint)
@@ -189,7 +177,7 @@ func isSub(child, parent []string) bool {
 	return len(subtraction(parent, child)) == 0
 }
 
-func contains(a string, arr []string) bool {
+func hasPattern(a string, arr []string) bool {
 	m := arrayToMap(arr)
 
 	return m[a]
@@ -203,15 +191,15 @@ func findMatchingApps(module *sysl.Module, excludes []string, integrations []str
 	result := []string{}
 	appReStr := toPattern(integrations)
 	re := regexp.MustCompile(appReStr)
-	for _, apps := range deps {
-		appNames := extractAppNames(apps)
+	for _, dep := range deps {
+		appNames := dep.extractAppNames()
 		inter := intersection(appNames, excludes)
 		if len(inter) > 0 {
 			continue
 		}
 		filtered, err := stream.Contents(stream.Items(appNames...), stream.If(func(item string) bool {
 			app := module.GetApps()[item]
-			return re.MatchString(item) && validatePatterns("human", extractApplicationAttr("patterns", app))
+			return re.MatchString(item) && !hasPattern("human", extractApplicationAttr("patterns", app))
 		}))
 		if err != nil {
 			log.Error(err)
@@ -224,8 +212,8 @@ func findMatchingApps(module *sysl.Module, excludes []string, integrations []str
 
 func findApps(module *sysl.Module, excludes, matchingApps []string, deps []*AppDependency) []string {
 	result := []string{}
-	for _, apps := range deps {
-		appNames := extractAppNames(apps)
+	for _, dep := range deps {
+		appNames := dep.extractAppNames()
 		interExcludes := intersection(appNames, excludes)
 		if len(interExcludes) > 0 {
 			continue
@@ -236,7 +224,7 @@ func findApps(module *sysl.Module, excludes, matchingApps []string, deps []*AppD
 		}
 		filtered, err := stream.Contents(stream.Items(appNames...), stream.If(func(item string) bool {
 			app := module.GetApps()[item]
-			return validatePatterns("human", extractApplicationAttr("patterns", app))
+			return !hasPattern("human", extractApplicationAttr("patterns", app))
 		}))
 		if err != nil {
 			log.Error(err)
@@ -259,7 +247,7 @@ func walkPassthrough(excludes, passthroughs []string, dep *AppDependency, integr
 	}
 
 	// find the next outbound dep
-	if contains(targetName, passthroughs) {
+	if hasPattern(targetName, passthroughs) {
 		calls := []*sysl.Call{}
 		endpointStmts := module.GetApps()[targetName].GetEndpoints()[targetEndpoint].GetStmt()
 		makeCalls(endpointStmts, calls)
@@ -278,8 +266,8 @@ func findIntegrations(apps, excludes, passthroughs []string, deps []*AppDependen
 	outboundDeps := []*AppDependency{}
 	lenPassthroughs := len(passthroughs)
 	for _, dep := range deps {
-		appNames := extractAppNames(dep)
-		endpoints := extractEndpoints(dep)
+		appNames := dep.extractAppNames()
+		endpoints := dep.extractEndpoints()
 		isSubsection := isSub(appNames, apps)
 		isSelfSubsection := isSub([]string{appNames[0]}, apps)
 		isTargetSubsection := isSub([]string{appNames[1]}, apps)
