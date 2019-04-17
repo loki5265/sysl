@@ -29,29 +29,6 @@ func generateSequenceDiag(m *sysl.Module, p *sequenceDiagParam) (string, error) 
 	return w.String(), nil
 }
 
-type arrayFlags []string
-
-// String implements flag.Value.
-func (i *arrayFlags) String() string {
-	return strings.Join(*i, ",")
-}
-
-// Set implements flag.Value.
-func (i *arrayFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
-}
-
-func loadApp(root string, models string) *sysl.Module {
-	// Model we want to generate seqs for, the non-empty model
-	mod, err := Parse(models, root)
-	if err == nil {
-		return mod
-	}
-	log.Errorf("unable to load module:\n\troot: " + root + "\n\tmodel:" + models)
-	return nil
-}
-
 func constructFormatParser(former, latter string) *seqs.FormatParser {
 	fmtstr := former
 	if former == "" {

@@ -22,25 +22,41 @@ type AppDependency struct {
 	Target *AppElement
 }
 
+type DependencySet struct {
+	slice []*AppDependency
+}
+
+func (dep *AppDependency) Equals(target *AppDependency) bool {
+	return (dep.Self.Name == target.Self.Name) && (dep.Self.Endpoint == target.Self.Endpoint) &&
+		(dep.Target.Name == target.Target.Name) && (dep.Target.Endpoint == target.Target.Endpoint)
+}
+
+func (set *DependencySet) Add(dep *AppDependency) {
+	if !set.Contains(dep) {
+		set.slice = append(set.slice, dep)
+	}
+}
+
+func (set *DependencySet) Contains(dep *AppDependency) bool {
+	for _, v := range set.slice {
+		if v.Equals(dep) {
+			return true
+		}
+	}
+	
+	return false
+}
+
+func NewDependencySet() *DependencySet {
+	return &DependencySet{[]*AppDependency{}}
+}
+
 func MakeAppDependency(self, target *AppElement) *AppDependency {
 	return &AppDependency{self, target}
 }
 
 func MakeAppElement(name, endpoint string) *AppElement {
 	return &AppElement{name, endpoint}
-}
-
-type arrayFlags []string
-
-// String implements flag.Value.
-func (i *arrayFlags) String() string {
-	return strings.Join(*i, ",")
-}
-
-// Set implements flag.Value.
-func (i *arrayFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
 }
 
 func makeCalls(statements []*sysl.Statement, calls []*sysl.Call) {
@@ -78,7 +94,7 @@ func formatAppName(appNames []string) string {
 
 func checkDependencies(module *sysl.Module) []*AppDependency {
 	var errStr string
-	deps := []*AppDependency{}
+	depSet := NewDependencySet()
 	errors := []string{}
 	apps := module.GetApps()
 	for appname, app := range apps {
@@ -100,11 +116,12 @@ func checkDependencies(module *sysl.Module) []*AppDependency {
 					if targetApp.GetEndpoints()[callEndpoint] == nil {
 						errStr = fmt.Sprintf(
 							"%s <- %s: calls non-existent endpoint %s -> %s", appname, epname, targetName, callEndpoint)
+						errors = append(errors, errStr)
 					} else {
 						selfApp := MakeAppElement(appname, epname)
 						targetApp := MakeAppElement(targetName, callEndpoint)
 						dep := MakeAppDependency(selfApp, targetApp)
-						deps = append(deps, dep)
+						depSet.Add(dep)
 					}
 				}
 			}
@@ -114,7 +131,7 @@ func checkDependencies(module *sysl.Module) []*AppDependency {
 	if len(errors) > 0 {
 		panic(fmt.Sprintf("broken deps:\n  %s", strings.Join(errors, "\n")))
 	}
-	return deps
+	return depSet.slice
 }
 
 func (dep *AppDependency) extractAppNames() []string {
@@ -157,6 +174,12 @@ func intersection(a, b []string) []string {
 // execute like a - b
 func subtraction(a, b []string) []string {
 	result := []string{}
+	if b == nil || len(b) == 0 {
+		return a
+	}
+	if a == nil || len(a) == 0 {
+		return result
+	}
 	m := arrayToMap(b)
 	for _, k := range a {
 		if _, has := m[k]; !has {
@@ -293,23 +316,6 @@ func findIntegrations(apps, excludes, passthroughs []string, deps []*AppDependen
 	return integrations
 }
 
-func loadApp(root string, models []string) *sysl.Module {
-	// Model we want to generate ints for, the first non-empty model
-	var model string
-	for _, val := range models {
-		if len(val) > 0 {
-			model = val
-			break
-		}
-	}
-	mod, err := Parse(model, root)
-	if err == nil {
-		return mod
-	}
-	log.Errorf("unable to load module:\n\troot: " + root + "\n\tmodel:" + model)
-	return nil
-}
-
 func extractApplicationAttr(attrStr string, app *sysl.Application) []string {
 	return transformAttributes(app.GetAttrs()[attrStr])
 }
@@ -345,8 +351,8 @@ func extractAction(stmts []*sysl.Statement) []string {
 }
 
 func GenerateIntegrations(
-	root_model, title, plantuml, output, project, filter string,
-	exclude, modules []string,
+	root_model, title, plantuml, output, project, filter, modules string,
+	exclude []string,
 	clustered, epa bool,
 ) {
 	mod := loadApp(root_model, modules)
@@ -390,7 +396,7 @@ func DoGenerateIntegrations(stdout, stderr io.Writer, flags *flag.FlagSet, args 
 			log.Errorln(err)
 		}
 	}()
-	var exclude, modules_flag arrayFlags
+	var exclude arrayFlags
 	root_model := flags.String("root-model", ".", "sysl root directory for input model file (default: .)")
 	title := flags.String("title", "", "diagram title")
 	plantuml := flags.String("plantuml", "", strings.Join([]string{"base url of plantuml server",
@@ -399,10 +405,10 @@ func DoGenerateIntegrations(stdout, stderr io.Writer, flags *flag.FlagSet, args 
 	output := flags.String("output", "%(epname).png", "output file(default: %(epname).png)")
 	project := flags.String("project", "", "project pseudo-app to render")
 	filter := flags.String("filter", "", "Only generate diagrams whose output paths match a pattern")
-	flags.Var(&exclude, "exclude", "apps to exclude")
-	flags.Var(&modules_flag, "modules", strings.Join([]string{"input files without .sysl extension and with leading /",
+	modules := flags.String("modules", ".", strings.Join([]string{"input files without .sysl extension and with leading /",
 		"eg: /project_dir/my_models",
 		"combine with --root if needed"}, "\n"))
+	flags.Var(&exclude, "exclude", "apps to exclude")
 	clustered := flags.Bool("clustered", false, "group integration components into clusters")
 	epa := flags.Bool("epa", false, "produce and EPA integration view")
 
@@ -425,8 +431,8 @@ func DoGenerateIntegrations(stdout, stderr io.Writer, flags *flag.FlagSet, args 
 	log.Debugf("expire_cache: %t\n", *expire_cache)
 	log.Debugf("dry_run: %t\n", *dry_run)
 	log.Debugf("filter: %s\n", *filter)
-	log.Debugf("modules: %s\n", modules_flag)
+	log.Debugf("modules: %s\n", *modules)
 	log.Debugf("output: %s\n", *output)
 
-	GenerateIntegrations(*root_model, *title, *plantuml, *output, *project, *filter, exclude, modules_flag, *clustered, *epa)
+	GenerateIntegrations(*root_model, *title, *plantuml, *output, *project, *filter, *modules, exclude, *clustered, *epa)
 }
