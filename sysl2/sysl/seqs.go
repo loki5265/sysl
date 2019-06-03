@@ -190,6 +190,6 @@ func DoGenerateSequenceDiagrams(stdout, stderr io.Writer, flags *flag.FlagSet, a
 	result := DoConstructSequenceDiagrams(*root, *endpoint_format, *app_format, *title, *output, *modules_flag,
 		*endpoints_flag, *apps_flag, seqs.ParseBlackBoxesFromArgument(*blackboxes_flag))
 	for k, v := range result {
-		seqs.OutputPlantuml(k, *plantuml, v)
+		OutputPlantuml(k, *plantuml, v)
 	}
 }
