@@ -35,6 +35,9 @@ func main3(stdout, stderr io.Writer, args []string) error {
 	case "sd":
 		DoGenerateSequenceDiagrams(stdout, stderr, flags, args)
 		return nil
+	case "ints":
+		DoGenerateIntegrations(stdout, stderr, flags, args)
+		return nil
 	}
 	root := flags.String("root", ".", "sysl root directory for input files (default: .)")
 	output := flags.String("o", "", "output file name")

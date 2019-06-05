@@ -1,6 +1,8 @@
-package ints
+package integration
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGenerateView(t *testing.T) {
 }
