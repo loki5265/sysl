@@ -170,6 +170,71 @@ func (v *IntsDiagramVisitor) VarManagerForState(name string) string {
 	return s.alias
 }
 
+func (v *IntsDiagramVisitor) buildClusterForStateView(deps []*AppDependency, restrictBy string) {
+	clusters := map[string][]string{}
+	for _, dep := range deps {
+		appA := dep.Self.Name
+		appB := dep.Target.Name
+		epA := dep.Self.Endpoint
+		epB := dep.Target.Endpoint
+		_, okA := v.m.Apps[appA].Endpoints[epA].Attrs[restrictBy]
+		_, okB := v.m.Apps[appB].Endpoints[epB].Attrs[restrictBy]
+		if _, ok := v.m.Apps[appA].Attrs[restrictBy]; !ok && restrictBy != "" {
+			if _, ok := v.m.Apps[appB].Attrs[restrictBy]; !ok {
+				continue
+			}
+		}
+		if !okA && restrictBy != "" && !okB {
+			continue
+		}
+		clusters[appA] = append(clusters[appA], epA)
+		if appA != appB && !v.m.Apps[appA].Endpoints[epA].IsPubsub {
+			clusters[appA] = append(clusters[appA], epB+" client")
+		}
+		clusters[appB] = append(clusters[appB], epB)
+	}
+
+	for k, apps := range clusters {
+		v.VarManagerForTopState(k)
+		strSet := utils.MakeStrSet(apps...)
+		for _, m := range strSet.ToSlice() {
+			v.VarManagerForState(k + " : " + m)
+		}
+		fmt.Fprintln(v.sb, "}")
+	}
+}
+
+func (v *IntsDiagramVisitor) buildClusterForComponentView(apps []string) map[string]string {
+	nameMap := map[string]string{}
+	clusters := map[string][]string{}
+	for _, v := range apps {
+		cluster := strings.Split(v, " :: ")
+		if len(cluster) > 1 {
+			clusters[cluster[0]] = append(clusters[cluster[0]], v)
+		}
+	}
+
+	for k, v := range clusters {
+		if len(v) <= 1 {
+			delete(clusters, k)
+		}
+		for _, s := range v {
+			nameMap[s] = strings.Split(s, " :: ")[1]
+		}
+	}
+
+	for k, apps := range clusters {
+		fmt.Fprintf(v.sb, "package \"%s\" {", k)
+		fmt.Fprintln(v.sb)
+		for _, n := range apps {
+			v.VarManagerForComponent(n, nameMap)
+		}
+		fmt.Fprintln(v.sb, "}")
+	}
+
+	return nameMap
+}
+
 func (v *IntsDiagramVisitor) generateStateView(args *Args, viewParams viewParams, params *IntsParam) string {
 
 	fmt.Fprintln(v.sb, "@startuml")
@@ -196,46 +261,21 @@ func (v *IntsDiagramVisitor) generateStateView(args *Args, viewParams viewParams
 	}
 	fmt.Fprintln(v.sb, "}")
 
-	clusters := map[string][]string{}
-	for _, dep := range params.integrations {
-		appA := dep.Self.Name
-		appB := dep.Target.Name
-		epA := dep.Self.Endpoint
-		epB := dep.Target.Endpoint
-		if _, ok := v.m.Apps[appA].Attrs[viewParams.restrictBy]; !ok && viewParams.restrictBy != "" {
-			if _, ok := v.m.Apps[appB].Attrs[viewParams.restrictBy]; !ok {
-				continue
-			}
-		}
-		if viewParams.restrictBy != "" && !stringInSlice(viewParams.restrictBy, getMapKeys(v.m.Apps[appA].Endpoints[epA].Attrs)) && !stringInSlice(viewParams.restrictBy, getMapKeys(v.m.Apps[appB].Endpoints[epB].Attrs)) {
-			continue
-		}
-		clusters[appA] = append(clusters[appA], epA)
-		if appA != appB && !v.m.Apps[appA].Endpoints[epA].IsPubsub {
-			clusters[appA] = append(clusters[appA], epB+" client")
-		}
-		clusters[appB] = append(clusters[appB], epB)
-	}
-
-	for k, apps := range clusters {
-		v.VarManagerForTopState(k)
-		strSet := utils.MakeStrSet(apps...)
-		for _, m := range strSet.ToSlice() {
-			v.VarManagerForState(k + " : " + m)
-		}
-		fmt.Fprintln(v.sb, "}")
-	}
-
+	v.buildClusterForStateView(params.integrations, viewParams.restrictBy)
 	var processed []string
 	for _, dep := range params.integrations {
 		appA := dep.Self.Name
 		appB := dep.Target.Name
 		epA := dep.Self.Endpoint
 		epB := dep.Target.Endpoint
-		if viewParams.restrictBy != "" && !stringInSlice(viewParams.restrictBy, getMapKeys(v.m.Apps[appA].Attrs)) && !stringInSlice(viewParams.restrictBy, getMapKeys(v.m.Apps[appB].Attrs)) {
+		_, restrictByAppA := v.m.Apps[appA].Attrs[viewParams.restrictBy]
+		_, restrictByAppB := v.m.Apps[appB].Attrs[viewParams.restrictBy]
+		_, restrictByEpA := v.m.Apps[appA].Endpoints[epA].Attrs[viewParams.restrictBy]
+		_, restrictByEpB := v.m.Apps[appB].Endpoints[epB].Attrs[viewParams.restrictBy]
+		if viewParams.restrictBy != "" && !restrictByAppA && !restrictByAppB {
 			continue
 		}
-		if viewParams.restrictBy != "" && !stringInSlice(viewParams.restrictBy, getMapKeys(v.m.Apps[appA].Endpoints[epA].Attrs)) && !stringInSlice(viewParams.restrictBy, getMapKeys(v.m.Apps[appB].Endpoints[epB].Attrs)) {
+		if viewParams.restrictBy != "" && !restrictByEpA && !restrictByEpB {
 			continue
 		}
 		matchApp := appB
@@ -337,58 +377,7 @@ func (v *IntsDiagramVisitor) generateStateView(args *Args, viewParams viewParams
 
 }
 
-func (v *IntsDiagramVisitor) generateComponentView(args *Args, viewParams viewParams, params *IntsParam) string {
-
-	fmt.Fprintln(v.sb, "@startuml")
-	if viewParams.diagramTitle != "" {
-		fmt.Fprintln(v.sb, "title "+viewParams.diagramTitle)
-	}
-	fmt.Fprintln(v.sb, "hide stereotype")
-	fmt.Fprintln(v.sb, "scale max 16384 height")
-	fmt.Fprintln(v.sb, "skinparam component {")
-	fmt.Fprintln(v.sb, "  BackgroundColor FloralWhite")
-	fmt.Fprintln(v.sb, "  BorderColor Black")
-	fmt.Fprintln(v.sb, "  ArrowColor Crimson")
-	if viewParams.highLightColor != "" {
-		fmt.Fprintln(v.sb, "  BackgroundColor<<highlight>> "+viewParams.highLightColor)
-	}
-	if viewParams.arrowColor != "" {
-		fmt.Fprintln(v.sb, "  ArrowColor "+viewParams.arrowColor)
-	}
-
-	if viewParams.indirectArrowColor != "" && viewParams.indirectArrowColor != "none" {
-		fmt.Fprintln(v.sb, "  ArrowColor<<indirect>> "+viewParams.indirectArrowColor)
-	}
-	fmt.Fprintln(v.sb, "}")
-
-	nameMap := map[string]string{}
-	if args.clustered || viewParams.endptAttrs["view"].GetS() == "clustered" {
-		clusters := map[string][]string{}
-		for _, v := range params.apps {
-			cluster := strings.Split(v, " :: ")
-			if len(cluster) > 1 {
-				clusters[cluster[0]] = append(clusters[cluster[0]], v)
-			}
-		}
-
-		for k, v := range clusters {
-			if len(v) <= 1 {
-				delete(clusters, k)
-			}
-			for _, s := range v {
-				nameMap[s] = strings.Split(s, " :: ")[1]
-			}
-		}
-
-		for k, apps := range clusters {
-			fmt.Fprintf(v.sb, "package \"%s\" {", k)
-			fmt.Fprintln(v.sb)
-			for _, n := range apps {
-				v.VarManagerForComponent(n, nameMap)
-			}
-			fmt.Fprintln(v.sb, "}")
-		}
-	}
+func (v *IntsDiagramVisitor) drawComponentView(viewParams viewParams, params *IntsParam, nameMap map[string]string) {
 	callsDrawn := map[CallsDrawn]struct{}{}
 	if viewParams.endptAttrs["view"].GetS() == "system" {
 		for _, dep := range params.integrations {
@@ -457,6 +446,37 @@ func (v *IntsDiagramVisitor) generateComponentView(args *Args, viewParams viewPa
 			}
 		}
 	}
+}
+
+func (v *IntsDiagramVisitor) generateComponentView(args *Args, viewParams viewParams, params *IntsParam) string {
+
+	fmt.Fprintln(v.sb, "@startuml")
+	if viewParams.diagramTitle != "" {
+		fmt.Fprintln(v.sb, "title "+viewParams.diagramTitle)
+	}
+	fmt.Fprintln(v.sb, "hide stereotype")
+	fmt.Fprintln(v.sb, "scale max 16384 height")
+	fmt.Fprintln(v.sb, "skinparam component {")
+	fmt.Fprintln(v.sb, "  BackgroundColor FloralWhite")
+	fmt.Fprintln(v.sb, "  BorderColor Black")
+	fmt.Fprintln(v.sb, "  ArrowColor Crimson")
+	if viewParams.highLightColor != "" {
+		fmt.Fprintln(v.sb, "  BackgroundColor<<highlight>> "+viewParams.highLightColor)
+	}
+	if viewParams.arrowColor != "" {
+		fmt.Fprintln(v.sb, "  ArrowColor "+viewParams.arrowColor)
+	}
+
+	if viewParams.indirectArrowColor != "" && viewParams.indirectArrowColor != "none" {
+		fmt.Fprintln(v.sb, "  ArrowColor<<indirect>> "+viewParams.indirectArrowColor)
+	}
+	fmt.Fprintln(v.sb, "}")
+
+	nameMap := map[string]string{}
+	if args.clustered || viewParams.endptAttrs["view"].GetS() == "clustered" {
+		nameMap = v.buildClusterForComponentView(params.apps)
+	}
+	v.drawComponentView(viewParams, params, nameMap)
 	fmt.Fprintln(v.sb, "@enduml")
 	return v.sb.String()
 }
@@ -516,14 +536,6 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
-}
-
-func getMapKeys(mymap map[string]*sysl.Attribute) []string {
-	keys := make([]string, 0, len(mymap))
-	for k := range mymap {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 func getApplicationAttrs(m *sysl.Module, appName string) map[string]string {
