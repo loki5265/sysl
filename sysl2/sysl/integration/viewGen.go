@@ -3,6 +3,7 @@ package integration
 import (
 	"fmt"
 	"github.com/anz-bank/sysl/src/proto"
+	"sort"
 	"strconv"
 	"strings"
 	"sysl/sysl2/sysl/utils"
@@ -194,9 +195,16 @@ func (v *IntsDiagramVisitor) buildClusterForStateView(deps []*AppDependency, res
 		clusters[appB] = append(clusters[appB], epB)
 	}
 
-	for k, apps := range clusters {
+	var keys []string
+	for k := range clusters {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	for _, k := range keys {
 		v.VarManagerForTopState(k)
-		strSet := utils.MakeStrSet(apps...)
+		strSet := utils.MakeStrSet(clusters[k]...)
 		for _, m := range strSet.ToSlice() {
 			v.VarManagerForState(k + " : " + m)
 		}
