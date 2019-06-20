@@ -543,3 +543,68 @@ _0 --> _1 <<indirect>>
 @enduml
 `, result)
 }
+
+func TestDrawSystemView(t *testing.T) {
+	//Given
+	var sb strings.Builder
+	v := &IntsDiagramVisitor{
+		sb:         &sb,
+		m:          &sysl.Module{},
+		highlights: map[string]struct{}{},
+		symbols: map[string]*_var{
+			"test": &_var{
+				alias: "_1",
+			},
+		},
+	}
+	deps := []*AppDependency{
+		&AppDependency{
+			Self: &AppElement{
+				Name:     "a",
+				Endpoint: "epa",
+			},
+			Target: &AppElement{
+				Name:     "b",
+				Endpoint: "epb",
+			},
+		},
+	}
+	params := &IntsParam{
+		integrations: deps,
+		app:          &sysl.Application{},
+		endpt: &sysl.Endpoint{
+			Attrs: map[string]*sysl.Attribute{
+				"epa": nil,
+			},
+		},
+	}
+	viewParams := &viewParams{}
+	nameMap := map[string]string{}
+
+	//When
+	v.drawSystemView(*viewParams, params, nameMap)
+
+	//Then
+	assert.Equal(t, `[] as _1
+[] as _2
+_1 --> _2 <<indirect>>
+`, v.sb.String())
+
+}
+
+func TestMakeIntsParam(t *testing.T) {
+	p := MakeIntsParam([]string{"a"},
+		map[string]struct{}{},
+		[]*AppDependency{},
+		&sysl.Application{}, &sysl.Endpoint{})
+
+	assert.NotNil(t, p)
+	assert.Equal(t, "a", p.apps[0])
+}
+
+func TestMakeArgs(t *testing.T) {
+	a := MakeArgs("a", "p", true, true)
+
+	assert.NotNil(t, a)
+	assert.Equal(t, "a", a.title)
+}

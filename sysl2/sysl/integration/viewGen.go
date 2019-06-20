@@ -388,36 +388,7 @@ func (v *IntsDiagramVisitor) generateStateView(args *Args, viewParams viewParams
 func (v *IntsDiagramVisitor) drawComponentView(viewParams viewParams, params *IntsParam, nameMap map[string]string) {
 	callsDrawn := map[CallsDrawn]struct{}{}
 	if viewParams.endptAttrs["view"].GetS() == "system" {
-		for _, dep := range params.integrations {
-			appA := dep.Self.Name
-			appB := dep.Target.Name
-			apps := &CallsDrawn{
-				Self:   appA,
-				Target: appB,
-			}
-			var direct []string
-			if _, ok := params.highlights[appA]; ok {
-				direct = append(direct, appA)
-			}
-			if _, ok := params.highlights[appB]; ok {
-				direct = append(direct, appB)
-			}
-			appA = strings.Split(appA, " :: ")[0]
-			appB = strings.Split(appB, " :: ")[0]
-			_, ok := callsDrawn[*apps]
-			if appA != appB && !ok {
-				if direct != nil || viewParams.indirectArrowColor != "none" {
-					indirect := ""
-					if direct == nil {
-						indirect = " <<indirect>>"
-					}
-					fmt.Fprintf(v.sb, "%s --> %s%s", v.VarManagerForComponent(appA, nameMap), v.VarManagerForComponent(appB, nameMap), indirect)
-					fmt.Fprintln(v.sb)
-					callsDrawn[*apps] = struct{}{}
-				}
-			}
-		}
-
+		v.drawSystemView(viewParams, params, nameMap)
 	} else {
 		for _, dep := range params.integrations {
 			appA := dep.Self.Name
@@ -451,6 +422,39 @@ func (v *IntsDiagramVisitor) drawComponentView(viewParams viewParams, params *In
 				mixinName := strings.Join(mixin.Name.Part, " :: ")
 				fmt.Fprintf(v.sb, "%s <|.. %s", v.VarManagerForComponent(mixinName, nameMap), v.VarManagerForComponent(app, nameMap))
 				fmt.Fprintln(v.sb)
+			}
+		}
+	}
+}
+
+func (v *IntsDiagramVisitor) drawSystemView(viewParams viewParams, params *IntsParam, nameMap map[string]string) {
+	callsDrawn := map[CallsDrawn]struct{}{}
+	for _, dep := range params.integrations {
+		appA := dep.Self.Name
+		appB := dep.Target.Name
+		apps := &CallsDrawn{
+			Self:   appA,
+			Target: appB,
+		}
+		var direct []string
+		if _, ok := params.highlights[appA]; ok {
+			direct = append(direct, appA)
+		}
+		if _, ok := params.highlights[appB]; ok {
+			direct = append(direct, appB)
+		}
+		appA = strings.Split(appA, " :: ")[0]
+		appB = strings.Split(appB, " :: ")[0]
+		_, ok := callsDrawn[*apps]
+		if appA != appB && !ok {
+			if direct != nil || viewParams.indirectArrowColor != "none" {
+				indirect := ""
+				if direct == nil {
+					indirect = " <<indirect>>"
+				}
+				fmt.Fprintf(v.sb, "%s --> %s%s", v.VarManagerForComponent(appA, nameMap), v.VarManagerForComponent(appB, nameMap), indirect)
+				fmt.Fprintln(v.sb)
+				callsDrawn[*apps] = struct{}{}
 			}
 		}
 	}
