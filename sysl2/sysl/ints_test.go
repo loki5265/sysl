@@ -139,7 +139,7 @@ func TestGenerateIntegrationsWithTestFileAndFilters(t *testing.T) {
 		modules:    "integration_test.sysl",
 		output:     "%(epname).png",
 		project:    "Project",
-		filter: "test",
+		filter:     "test",
 	}
 	expected := map[string]string{}
 

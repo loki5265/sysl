@@ -2,11 +2,12 @@ package integration
 
 import (
 	"fmt"
-	"github.com/anz-bank/sysl/src/proto"
 	"sort"
 	"strconv"
 	"strings"
-	"sysl/sysl2/sysl/utils"
+
+	"github.com/anz-bank/sysl/src/proto"
+	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 )
 
 type IntsParam struct {

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"io"
+	"os"
 	"regexp"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/anz-bank/sysl/sysl2/sysl/seqs"
 	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func GenerateIntegrations(
@@ -72,45 +74,49 @@ func DoGenerateIntegrations(stdout, stderr io.Writer, flags *flag.FlagSet, args 
 			log.Errorln(err)
 		}
 	}()
-	var exclude arrayFlags
-	root_model := flags.String("root-model", ".", "sysl root directory for input model file (default: .)")
-	title := flags.String("title", "", "diagram title")
-	plantuml := flags.String("plantuml", "", strings.Join([]string{"base url of plantuml server",
+	ints := kingpin.New("ints", "Generate integrations")
+	root := ints.Flag("root", "sysl root directory for input model file (default: .)").Default(".").String()
+	title := ints.Flag("title", "diagram title").Short('t').String()
+	plantuml := ints.Flag("plantuml", strings.Join([]string{"base url of plantuml server",
 		"(default: $SYSL_PLANTUML or http://localhost:8080/plantuml",
-		"see http://plantuml.com/server.html#install for more info)"}, "\n"))
-	output := flags.String("output", "%(epname).png", "output file(default: %(epname).png)")
-	project := flags.String("project", "", "project pseudo-app to render")
-	filter := flags.String("filter", "", "Only generate diagrams whose output paths match a pattern")
-	modules := flags.String("modules", ".", strings.Join([]string{"input files without .sysl extension and with leading /",
+		"see http://plantuml.com/server.html#install for more info)"}, "\n")).Short('p').String()
+	output := ints.Flag("output", "output file(default: %(epname).png)").Default("%(epname).png").Short('o').String()
+	project := ints.Flag("project", "project pseudo-app to render").Short('j').String()
+	filter := ints.Flag("filter", "Only generate diagrams whose output paths match a pattern").String()
+	modules := ints.Arg("modules", strings.Join([]string{"input files without .sysl extension and with leading /",
 		"eg: /project_dir/my_models",
-		"combine with --root if needed"}, "\n"))
-	flags.Var(&exclude, "exclude", "apps to exclude")
-	clustered := flags.Bool("clustered", false, "group integration components into clusters")
-	epa := flags.Bool("epa", false, "produce and EPA integration view")
+		"combine with --root if needed"}, "\n")).String()
+	exclude := ints.Flag("exclude", "apps to exclude").Short('e').Strings()
+	clustered := ints.Flag("clustered", "group integration components into clusters").Short('c').Default("false").Bool()
+	epa := ints.Flag("epa", "produce and EPA integration view").Default("false").Bool()
+	loglevel := ints.Flag("log", "log level[debug,info,warn,off]").Default("warn").String()
 
-	// Following variables currently are unused. Keep them to align with the python version.
-	expire_cache := flags.Bool("expire-cache", false, "Expire cache entries to force checking against real destination(default: false)")
-	dry_run := flags.Bool("dry-run", false, "Don't perform confluence uploads, but show what would have happened(default: false)")
-	verbose := flags.Bool("verbose", false, "Report each output(default: false)")
-
-	err := flags.Parse(args[1:])
+	_, err := ints.Parse(args[1:])
 	if err != nil {
 		log.Errorf("arguments parse error: %v", err)
 	}
-	log.Debugf("root_model: %s\n", *root_model)
+	if level, has := defaultLevel[*loglevel]; has {
+		log.SetLevel(level)
+	}
+	if *plantuml == "" {
+		*plantuml = os.Getenv("SYSL_PLANTUML")
+		if *plantuml == "" {
+			*plantuml = "http://localhost:8080/plantuml"
+		}
+	}
+	log.Debugf("root: %s\n", *root)
 	log.Debugf("project: %v\n", project)
 	log.Debugf("clustered: %t\n", *clustered)
+	log.Debugf("exclude: %s\n", *exclude)
 	log.Debugf("epa: %t\n", *epa)
 	log.Debugf("title: %s\n", *title)
 	log.Debugf("plantuml: %s\n", *plantuml)
-	log.Debugf("verbose: %t\n", *verbose)
-	log.Debugf("expire_cache: %t\n", *expire_cache)
-	log.Debugf("dry_run: %t\n", *dry_run)
 	log.Debugf("filter: %s\n", *filter)
 	log.Debugf("modules: %s\n", *modules)
 	log.Debugf("output: %s\n", *output)
+	log.Debugf("loglevel: %s\n", *loglevel)
 
-	r := GenerateIntegrations(*root_model, *title, *output, *project, *filter, *modules, exclude, *clustered, *epa)
+	r := GenerateIntegrations(*root, *title, *output, *project, *filter, *modules, *exclude, *clustered, *epa)
 	for k, v := range r {
 		OutputPlantuml(k, *plantuml, v)
 	}

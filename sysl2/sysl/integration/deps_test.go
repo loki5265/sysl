@@ -345,7 +345,7 @@ func TestDependencySet_ResolveDependencies(t *testing.T) {
 	assert.Equal(t, 1, len(ds.Deps))
 }
 
-func TestSubWhenParentAndChildEmpty(t *testing.T)  {
+func TestSubWhenParentAndChildEmpty(t *testing.T) {
 	// Given
 	c := utils.MakeStrSet()
 	p := utils.MakeStrSet()
@@ -358,7 +358,7 @@ func TestSubWhenParentAndChildEmpty(t *testing.T)  {
 	assert.Equal(t, expected, actual)
 }
 
-func TestSubWhenParentEmpty(t *testing.T)  {
+func TestSubWhenParentEmpty(t *testing.T) {
 	// Given
 	c := utils.MakeStrSet("A")
 	p := utils.MakeStrSet()
@@ -371,7 +371,7 @@ func TestSubWhenParentEmpty(t *testing.T)  {
 	assert.Equal(t, expected, actual)
 }
 
-func TestSubWhenChildEmpty(t *testing.T)  {
+func TestSubWhenChildEmpty(t *testing.T) {
 	// Given
 	c := utils.MakeStrSet()
 	p := utils.MakeStrSet("A")
@@ -384,7 +384,7 @@ func TestSubWhenChildEmpty(t *testing.T)  {
 	assert.Equal(t, expected, actual)
 }
 
-func TestBuildStringBoolFilter(t *testing.T)  {
+func TestBuildStringBoolFilter(t *testing.T) {
 	// Given
 	i := []string{"a"}
 	expected := map[string]bool{

@@ -1,10 +1,11 @@
 package utils
 
 import (
-	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"regexp"
 	"strings"
-	"sysl/sysl2/sysl/fmt_grammar"
+
+	"github.com/antlr/antlr4/runtime/Go/antlr"
+	parser "github.com/anz-bank/sysl/sysl2/sysl/fmt_grammar"
 )
 
 type FmtTreeShapeListener struct {

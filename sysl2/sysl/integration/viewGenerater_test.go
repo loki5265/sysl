@@ -1,10 +1,11 @@
 package integration
 
 import (
-	"github.com/anz-bank/sysl/src/proto"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/anz-bank/sysl/src/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestVarManagerForComponent(t *testing.T) {
