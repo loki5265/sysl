@@ -10,9 +10,7 @@ import (
 
 func TestAppDependency_String(t *testing.T) {
 	// Given
-	s := MakeAppElement("AppA", "EndptA")
-	tar := MakeAppElement("AppB", "EndptB")
-	dep := MakeAppDependency(s, tar)
+	dep := MakeAppDependency(MakeAppElement("AppA", "EndptA"), MakeAppElement("AppB", "EndptB"))
 	expected := "s.name: AppA, s.end: EndptA, t.name: AppB, t.end: EndptB"
 
 	// When
@@ -234,15 +232,11 @@ var mod = &sysl.Module{
 func TestFindHighlightApps(t *testing.T) {
 	// Given
 	ds := NewDependencySet()
-	s := MakeAppElement("AppA", "EndptA")
-	tar := MakeAppElement("AppB", "EndptB")
-	dep := MakeAppDependency(s, tar)
-	ds.Deps[dep] = struct{}{}
+	dep := MakeAppDependency(MakeAppElement("AppA", "EndptA"), MakeAppElement("AppB", "EndptB"))
+	ds.Add(dep)
 
-	s1 := MakeAppElement("AppC", "EndptC")
-	tar1 := MakeAppElement("AppD", "EndptD")
-	dep1 := MakeAppDependency(s1, tar1)
-	ds.Deps[dep1] = struct{}{}
+	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
+	ds.Add(dep1)
 
 	excludes := utils.MakeStrSet("AppC", "AppD")
 	integrations := utils.MakeStrSet("AppA", "AppB")
@@ -258,15 +252,11 @@ func TestFindHighlightApps(t *testing.T) {
 func TestFindNoneHighlightApps(t *testing.T) {
 	// Given
 	ds := NewDependencySet()
-	s := MakeAppElement("AppA", "EndptA")
-	tar := MakeAppElement("AppB", "EndptB")
-	dep := MakeAppDependency(s, tar)
-	ds.Deps[dep] = struct{}{}
+	dep := MakeAppDependency(MakeAppElement("AppA", "EndptA"), MakeAppElement("AppB", "EndptB"))
+	ds.Add(dep)
 
-	s1 := MakeAppElement("AppC", "EndptC")
-	tar1 := MakeAppElement("AppD", "EndptD")
-	dep1 := MakeAppDependency(s1, tar1)
-	ds.Deps[dep1] = struct{}{}
+	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
+	ds.Add(dep1)
 
 	excludes := utils.MakeStrSet("AppC", "AppD")
 	integrations := utils.MakeStrSet("AppA", "AppB")
@@ -282,15 +272,11 @@ func TestFindNoneHighlightApps(t *testing.T) {
 func TestNotFindNoneHighlightApps(t *testing.T) {
 	// Given
 	ds := NewDependencySet()
-	s := MakeAppElement("AppA", "EndptA")
-	tar := MakeAppElement("AppB", "EndptB")
-	dep := MakeAppDependency(s, tar)
-	ds.Deps[dep] = struct{}{}
+	dep := MakeAppDependency(MakeAppElement("AppA", "EndptA"), MakeAppElement("AppB", "EndptB"))
+	ds.Add(dep)
 
-	s1 := MakeAppElement("AppC", "EndptC")
-	tar1 := MakeAppElement("AppD", "EndptD")
-	dep1 := MakeAppDependency(s1, tar1)
-	ds.Deps[dep1] = struct{}{}
+	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
+	ds.Add(dep1)
 
 	excludes := utils.MakeStrSet("AppC", "AppD")
 	integrations := utils.MakeStrSet("AppE", "AppF")
@@ -307,31 +293,26 @@ func TestFindIntegrations(t *testing.T) {
 	// Given
 	ds := NewDependencySet()
 	expected := NewDependencySet()
-	s := MakeAppElement("AppA", "EndptA")
 	tar := MakeAppElement("AppB", "EndptB")
-	dep := MakeAppDependency(s, tar)
-	ds.Deps[dep] = struct{}{}
+	dep := MakeAppDependency(MakeAppElement("AppA", "EndptA"), tar)
+	ds.Add(dep)
 
-	s1 := MakeAppElement("AppC", "EndptC")
-	tar1 := MakeAppElement("AppD", "EndptD")
-	dep1 := MakeAppDependency(s1, tar1)
-	ds.Deps[dep1] = struct{}{}
+	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
+	ds.Add(dep1)
 
 	apps := utils.MakeStrSet("AppA", "AppB")
 	excludes := utils.MakeStrSet("AppC")
 	passthrough := utils.MakeStrSet("AppB", "AppE", "AppF")
 
-	e := MakeAppElement("AppE", "EndptE")
-	dep2 := MakeAppDependency(tar, e)
-	expected.Deps[dep] = struct{}{}
-	expected.Deps[dep2] = struct{}{}
+	dep2 := MakeAppDependency(tar, MakeAppElement("AppE", "EndptE"))
+	expected.Add(dep)
+	expected.Add(dep2)
 
 	// When
 	actual := ds.FindIntegrations(apps, excludes, passthrough, mod)
 
 	// Then
-	assert.Equal(t, actual.Deps[dep], expected.Deps[dep])
-	assert.Equal(t, actual.Deps[dep2], expected.Deps[dep2])
+	assert.Equal(t, actual.Deps, expected.Deps)
 }
 
 func TestDependencySet_ResolveDependencies(t *testing.T) {
@@ -339,7 +320,7 @@ func TestDependencySet_ResolveDependencies(t *testing.T) {
 	ds := NewDependencySet()
 
 	// When
-	ds.ResolveDependencies(mod)
+	ds.CollectAppDependencies(mod)
 
 	// Then
 	assert.Equal(t, 1, len(ds.Deps))

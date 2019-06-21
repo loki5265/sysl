@@ -3,6 +3,7 @@ package main // SyslParser
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	"math"
 	"net/http"
 	"path/filepath"
@@ -2227,8 +2228,8 @@ func (s *TreeShapeListener) EnterSubscribe(ctx *parser.SubscribeContext) {
 			s.module.Apps[s.appname].Endpoints[s.typename].Stmt = []*sysl.Statement{}
 			s.pushScope(s.module.Apps[s.appname].Endpoints[s.typename])
 		}
-		srcAppName := getAppName(app_src)
-		srcApp := getApp(app_src, s.module)
+		srcAppName := utils.GetAppName(app_src)
+		srcApp := utils.GetApp(app_src, s.module)
 		if srcApp == nil {
 			s.module.Apps[srcAppName] = &sysl.Application{
 				Name:      app_src,

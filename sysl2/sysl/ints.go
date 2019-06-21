@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/anz-bank/sysl/sysl2/sysl/integration"
@@ -26,9 +27,8 @@ func GenerateIntegrations(
 	}
 	excludeStrSet := utils.MakeStrSet(exclude...)
 	ds := integration.NewDependencySet()
-	ds.ResolveDependencies(mod)
+	ds.CollectAppDependencies(mod)
 
-	//var out_fmt func(output string) string
 	// The "project" app that specifies the required view of the integration
 	app := mod.GetApps()[project]
 	of := seqs.MakeFormatParser(output)
@@ -56,11 +56,10 @@ func GenerateIntegrations(
 
 		// invoke generate_view string
 		dependencySet := ds.FindIntegrations(apps, excludes, passthroughs, mod)
-		deps := []*integration.AppDependency{}
-		for dep := range dependencySet.Deps {
-			deps = append(deps, dep)
-		}
-		intsParam := integration.MakeIntsParam(apps.ToSlice(), highlights, deps, app, endpt)
+		sort.Slice(dependencySet.Deps, func(i, j int) bool {
+			return strings.Compare(dependencySet.Deps[i].String(), dependencySet.Deps[j].String()) < 0
+		})
+		intsParam := integration.MakeIntsParam(apps.ToSlice(), highlights, dependencySet.Deps, app, endpt)
 		args := integration.MakeArgs(title, project, clustered, epa)
 		r[output_dir] = integration.GenerateView(args, intsParam, mod)
 	}

@@ -21,19 +21,38 @@ type AppDependency struct {
 }
 
 type DependencySet struct {
-	Deps   map[*AppDependency]struct{}
-	errors []string
+	Deps   []*AppDependency
 }
 
 func (dep *AppDependency) String() string {
 	return fmt.Sprintf("s.name: %s, s.end: %s, t.name: %s, t.end: %s", dep.Self.Name, dep.Self.Endpoint, dep.Target.Name, dep.Target.Endpoint)
 }
 
+func (dep *AppDependency) Equals(target *AppDependency) bool {
+	return (dep.Self.Name == target.Self.Name) && (dep.Self.Endpoint == target.Self.Endpoint) &&
+		(dep.Target.Name == target.Target.Name) && (dep.Target.Endpoint == target.Target.Endpoint)
+}
+
+func (ds *DependencySet) Add(dep *AppDependency) {
+	if !ds.Contains(dep) {
+		ds.Deps = append(ds.Deps, dep)
+	}
+}
+
+func (ds *DependencySet) Contains(dep *AppDependency) bool {
+	for _, v := range ds.Deps {
+		if v.Equals(dep) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (dep *AppDependency) extractAppNames() utils.StrSet {
 	s := utils.StrSet{}
 	s.Insert(dep.Self.Name)
 	s.Insert(dep.Target.Name)
-
 	return s
 }
 
@@ -41,12 +60,11 @@ func (dep *AppDependency) extractEndpoints() utils.StrSet {
 	s := utils.StrSet{}
 	s.Insert(dep.Self.Endpoint)
 	s.Insert(dep.Target.Endpoint)
-
 	return s
 }
 
 func NewDependencySet() *DependencySet {
-	return &DependencySet{map[*AppDependency]struct{}{}, []string{}}
+	return &DependencySet{[]*AppDependency{}}
 }
 
 func MakeAppDependency(self, target *AppElement) *AppDependency {
@@ -104,7 +122,7 @@ func FindApps(module *sysl.Module, excludes, integrations utils.StrSet, ds *Depe
 	r := []string{}
 	appReStr := toPattern(integrations.ToSlice())
 	re := regexp.MustCompile(appReStr)
-	st, _ := stream.Of(ds.buildArray())
+	st, _ := stream.Of(ds.Deps)
 	st.ForEach(func(v stream.T) bool {
 		if dep, ok := v.(*AppDependency); ok {
 			appNames := dep.extractAppNames()
@@ -147,7 +165,7 @@ func walkPassthrough(excludes, passthroughs utils.StrSet, dep *AppDependency, in
 	undeterminedEps := utils.MakeStrSet(targetEndpoint).Intersection(utils.MakeStrSet(".. * <- *", "*"))
 	//Add to integration array since all dependencies are determined.
 	if len(excludedApps) == 0 && len(undeterminedEps) == 0 {
-		integrations.Deps[dep] = struct{}{}
+		integrations.Add(dep)
 	}
 
 	// find the next outbound dep
@@ -164,20 +182,11 @@ func walkPassthrough(excludes, passthroughs utils.StrSet, dep *AppDependency, in
 	}
 }
 
-func (ds *DependencySet) buildArray() []*AppDependency {
-	r := []*AppDependency{}
-	for k := range ds.Deps {
-		r = append(r, k)
-	}
-
-	return r
-}
-
 func (ds *DependencySet) FindIntegrations(apps, excludes, passthroughs utils.StrSet, module *sysl.Module) *DependencySet {
 	integrations := NewDependencySet()
 	outboundDeps := NewDependencySet()
 	lenPassthroughs := len(passthroughs)
-	for dep := range ds.Deps {
+	for _, dep := range ds.Deps {
 		appNames := dep.extractAppNames()
 		endpoints := dep.extractEndpoints()
 		isSubsection := isSub(appNames, apps)
@@ -188,16 +197,16 @@ func (ds *DependencySet) FindIntegrations(apps, excludes, passthroughs utils.Str
 		lenInterExcludes := len(interExcludes)
 		lenInterEndpoints := len(interEndpoints)
 		if isSubsection && lenInterExcludes == 0 && lenInterEndpoints == 0 {
-			integrations.Deps[dep] = struct{}{}
+			integrations.Add(dep)
 		}
 		// collect outbound dependencies
 		if lenPassthroughs > 0 &&
 			((isSubsection || (isSelfSubsection && isTargetSubsection)) && lenInterExcludes == 0 && lenInterEndpoints == 0) {
-			outboundDeps.Deps[dep] = struct{}{}
+			outboundDeps.Add(dep)
 		}
 	}
 	if lenPassthroughs > 0 {
-		for dep := range outboundDeps.Deps {
+		for _, dep := range outboundDeps.Deps {
 			walkPassthrough(excludes, passthroughs, dep, integrations, module)
 		}
 	}
@@ -205,61 +214,36 @@ func (ds *DependencySet) FindIntegrations(apps, excludes, passthroughs utils.Str
 	return integrations
 }
 
-func (ds *DependencySet) ResolveDependencies(module *sysl.Module) {
-	apps := module.GetApps()
-	for appname, app := range apps {
+func (ds *DependencySet) CollectAppDependencies(module *sysl.Module) {
+	for appname, app := range module.GetApps() {
 		for epname, endpoint := range app.GetEndpoints() {
-			ds.resolveStatementDependencies(endpoint.GetStmt(), apps, appname, epname)
+			ds.collectStatementDependencies(endpoint.GetStmt(), appname, epname)
 		}
-	}
-
-	if len(ds.errors) > 0 {
-		panic(fmt.Sprintf("broken deps:\n  %s", strings.Join(ds.errors, "\n")))
 	}
 }
 
-func (ds *DependencySet) resolveStatementDependencies(stmts []*sysl.Statement, apps map[string]*sysl.Application, appname, epname string) {
+func (ds *DependencySet) collectStatementDependencies(stmts []*sysl.Statement, appname, epname string) {
 	for _, stat := range stmts {
 		switch c := stat.GetStmt().(type) {
 		case *sysl.Statement_Call:
-			var errStr string
-			targetName := getAppName(c.Call.GetTarget())
-			targetApp := apps[targetName]
-			if targetApp == nil {
-				errStr = fmt.Sprintf("%s <- %s: calls non-existent app %s", appname, epname, targetName)
-				ds.errors = append(ds.errors, errStr)
-			} else {
-				isValid := !hasPattern("abstract", utils.MakeStrSetFromSpecificAttr("patterns", targetApp.GetAttrs()).ToSlice())
-				if !isValid {
-					panic(fmt.Sprintf("call target '%s' must not be ~abstract", targetName))
-				}
-				callEndpoint := c.Call.GetEndpoint()
-				if targetApp.GetEndpoints()[callEndpoint] == nil {
-					errStr = fmt.Sprintf(
-						"%s <- %s: calls non-existent endpoint %s -> %s", appname, epname, targetName, callEndpoint)
-					ds.errors = append(ds.errors, errStr)
-				} else {
-					selfApp := MakeAppElement(appname, epname)
-					targetApp := MakeAppElement(targetName, callEndpoint)
-					dep := MakeAppDependency(selfApp, targetApp)
-					ds.Deps[dep] = struct{}{}
-				}
-			}
+			targetName := utils.GetAppName(c.Call.GetTarget())
+			dep := MakeAppDependency(MakeAppElement(appname, epname), MakeAppElement(targetName, c.Call.GetEndpoint()))
+			ds.Add(dep)
 		case *sysl.Statement_Action, *sysl.Statement_Ret:
 			continue
 		case *sysl.Statement_Cond:
-			ds.resolveStatementDependencies(c.Cond.GetStmt(), apps, appname, epname)
+			ds.collectStatementDependencies(c.Cond.GetStmt(), appname, epname)
 		case *sysl.Statement_Loop:
-			ds.resolveStatementDependencies(c.Loop.GetStmt(), apps, appname, epname)
+			ds.collectStatementDependencies(c.Loop.GetStmt(), appname, epname)
 		case *sysl.Statement_LoopN:
-			ds.resolveStatementDependencies(c.LoopN.GetStmt(), apps, appname, epname)
+			ds.collectStatementDependencies(c.LoopN.GetStmt(), appname, epname)
 		case *sysl.Statement_Foreach:
-			ds.resolveStatementDependencies(c.Foreach.GetStmt(), apps, appname, epname)
+			ds.collectStatementDependencies(c.Foreach.GetStmt(), appname, epname)
 		case *sysl.Statement_Group:
-			ds.resolveStatementDependencies(c.Group.GetStmt(), apps, appname, epname)
+			ds.collectStatementDependencies(c.Group.GetStmt(), appname, epname)
 		case *sysl.Statement_Alt:
 			for _, choice := range c.Alt.GetChoice() {
-				ds.resolveStatementDependencies(choice.GetStmt(), apps, appname, epname)
+				ds.collectStatementDependencies(choice.GetStmt(), appname, epname)
 			}
 		default:
 			panic("No statement!")
@@ -288,10 +272,6 @@ func hasPattern(s string, arr []string) bool {
 
 func toPattern(comp []string) string {
 	return fmt.Sprintf(`^(?:%s)(?: *::|$)`, strings.Join(comp, "|"))
-}
-
-func getAppName(appname *sysl.AppName) string {
-	return strings.Join(appname.Part, " :: ")
 }
 
 func buildStringBoolFilter(a []string) map[string]bool {

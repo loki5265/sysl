@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -104,7 +105,7 @@ func applyAttributes(src *sysl.Statement, dst *sysl.Statement) bool {
 	case *sysl.Statement_Foreach:
 		stmts = s.Foreach.Stmt
 	case *sysl.Statement_Call:
-		if isSameCall(src.GetCall(), s.Call) {
+		if utils.IsSameCall(src.GetCall(), s.Call) {
 			if dst.Attrs == nil {
 				dst.Attrs = map[string]*sysl.Attribute{}
 			}
@@ -149,7 +150,7 @@ func checkCalls(mod *sysl.Module, appname string, epname string, dst *sysl.State
 	case *sysl.Statement_Foreach:
 		stmts = s.Foreach.Stmt
 	case *sysl.Statement_Call:
-		app := getApp(s.Call.Target, mod)
+		app := utils.GetApp(s.Call.Target, mod)
 		if app == nil {
 			logrus.Warnf("%s::%s calls non-existant App: %s",
 				appname, epname, s.Call.Target.Part)
@@ -332,7 +333,7 @@ func infer_expr_type(mod *sysl.Module,
 
 func infer_types(mod *sysl.Module, appName string) {
 	for viewName, view := range mod.Apps[appName].Views {
-		if hasAbstractPattern(view.Attrs) {
+		if utils.HasAbstractPattern(view.Attrs) {
 			continue
 		}
 		if view.Expr.GetTransform() == nil {
@@ -355,9 +356,9 @@ func postProcess(mod *sysl.Module) {
 
 		if app.Mixin2 != nil {
 			for _, src := range app.Mixin2 {
-				src_app := getApp(src.Name, mod)
-				if hasAbstractPattern(src_app.Attrs) == false {
-					logrus.Warnf("mixin App (%s) should be ~abstract", getAppName(src.Name))
+				src_app := utils.GetApp(src.Name, mod)
+				if utils.HasAbstractPattern(src_app.Attrs) == false {
+					logrus.Warnf("mixin App (%s) should be ~abstract", utils.GetAppName(src.Name))
 					continue
 				}
 				if src_app.Types != nil && app.Types == nil {
@@ -371,7 +372,7 @@ func postProcess(mod *sysl.Module) {
 						app.Types[k] = v
 					} else {
 						logrus.Warnf("Type %s defined in %s and in %s",
-							k, appName, getAppName(src.Name))
+							k, appName, utils.GetAppName(src.Name))
 					}
 				}
 				for k, v := range src_app.Views {
@@ -379,7 +380,7 @@ func postProcess(mod *sysl.Module) {
 						app.Views[k] = v
 					} else {
 						logrus.Warnf("View %s defined in %s and in %s",
-							k, appName, getAppName(src.Name))
+							k, appName, utils.GetAppName(src.Name))
 					}
 				}
 			}

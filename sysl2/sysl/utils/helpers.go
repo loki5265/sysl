@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"strings"
@@ -6,15 +6,15 @@ import (
 	"github.com/anz-bank/sysl/src/proto"
 )
 
-func getAppName(appname *sysl.AppName) string {
+func GetAppName(appname *sysl.AppName) string {
 	return strings.Join(appname.Part, " :: ")
 }
 
-func getApp(appName *sysl.AppName, mod *sysl.Module) *sysl.Application {
-	return mod.Apps[getAppName(appName)]
+func GetApp(appName *sysl.AppName, mod *sysl.Module) *sysl.Application {
+	return mod.Apps[GetAppName(appName)]
 }
 
-func hasAbstractPattern(attrs map[string]*sysl.Attribute) bool {
+func HasAbstractPattern(attrs map[string]*sysl.Attribute) bool {
 	patterns, has := attrs["patterns"]
 	if has {
 		if x := patterns.GetA(); x != nil {
@@ -28,7 +28,7 @@ func hasAbstractPattern(attrs map[string]*sysl.Attribute) bool {
 	return false
 }
 
-func isSameApp(a *sysl.AppName, b *sysl.AppName) bool {
+func IsSameApp(a *sysl.AppName, b *sysl.AppName) bool {
 	if len(a.Part) != len(b.Part) {
 		return false
 	}
@@ -40,6 +40,6 @@ func isSameApp(a *sysl.AppName, b *sysl.AppName) bool {
 	return true
 }
 
-func isSameCall(a *sysl.Call, b *sysl.Call) bool {
-	return isSameApp(a.Target, b.Target) && a.Endpoint == b.Endpoint
+func IsSameCall(a *sysl.Call, b *sysl.Call) bool {
+	return IsSameApp(a.Target, b.Target) && a.Endpoint == b.Endpoint
 }
