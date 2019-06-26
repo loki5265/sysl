@@ -1,4 +1,4 @@
-package integration
+package main
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ type AppDependency struct {
 }
 
 type DependencySet struct {
-	Deps   []*AppDependency
+	Deps []*AppDependency
 }
 
 func (dep *AppDependency) String() string {

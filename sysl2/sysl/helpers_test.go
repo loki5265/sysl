@@ -1,4 +1,4 @@
-package utils
+package main
 
 import (
 	"testing"
@@ -119,7 +119,7 @@ func TestIsNotSameAppWithPartLength(t *testing.T) {
 	assert.Equal(t, false, actual)
 }
 
-func TestIsNotSameAppWithPartContent(t *testing.T)  {
+func TestIsNotSameAppWithPartContent(t *testing.T) {
 	// Given
 	a := &sysl.AppName{
 		Part: []string{"test", "name"},
@@ -135,7 +135,7 @@ func TestIsNotSameAppWithPartContent(t *testing.T)  {
 	assert.Equal(t, false, actual)
 }
 
-func TestIsSameApp(t *testing.T)  {
+func TestIsSameApp(t *testing.T) {
 	// Given
 	a := &sysl.AppName{
 		Part: []string{"test", "name"},

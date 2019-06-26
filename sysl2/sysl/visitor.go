@@ -1,12 +1,12 @@
-package seqs
+package main
 
 import (
 	"fmt"
+	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	"sort"
 	"strings"
 
 	"github.com/anz-bank/sysl/src/proto"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -38,7 +38,7 @@ func makeEntry(s string) *entry {
 type EndpointCollectionElement struct {
 	title      string
 	entries    []*entry
-	uptos      strSet
+	uptos      StrSet
 	blackboxes map[string]string
 }
 
@@ -68,7 +68,7 @@ func MakeEndpointCollectionElement(title string, endpoints []string, blackboxes 
 	return &EndpointCollectionElement{
 		title:      title,
 		entries:    entries,
-		uptos:      makeStrSet(uptos...),
+		uptos:      MakeStrSet(uptos...),
 		blackboxes: bb,
 	}
 }
@@ -82,8 +82,8 @@ type EndpointElement struct {
 	appName                string
 	endpointName           string
 	uptos                  map[string]string
-	senderPatterns         strSet
-	senderEndpointPatterns strSet
+	senderPatterns         StrSet
+	senderEndpointPatterns StrSet
 	stmt                   *sysl.Statement
 	deactivate             func()
 }
@@ -123,13 +123,13 @@ func (e *EndpointElement) label(
 	l EndpointLabeler,
 	m *sysl.Module,
 	ep *sysl.Endpoint,
-	epp strSet,
+	epp StrSet,
 	isHuman, isHumanSender, needsInt bool,
 ) string {
 	label := normalizeEndpointName(e.endpointName)
 
 	if e.stmt != nil && e.stmt.GetCall() != nil {
-		ptrns := func(a strSet, b strSet) string {
+		ptrns := func(a StrSet, b StrSet) string {
 			if len(a) > 0 || len(b) > 0 {
 				return fmt.Sprintf("%s → %s", strings.Join(a.ToSortedSlice(), ", "), strings.Join(b.ToSortedSlice(), ", "))
 			}
@@ -246,7 +246,7 @@ func (v *SequenceDiagramVisitor) visitEndpointCollection(e *EndpointCollectionEl
 	}
 
 	for _, entry := range e.entries {
-		allUptos := makeStrSet()
+		allUptos := MakeStrSet()
 		for _, entry := range e.entries {
 			item := fmt.Sprintf("%s <- %s", entry.appName, entry.endpointName)
 			allUptos.Insert(item)
@@ -268,8 +268,8 @@ func (v *SequenceDiagramVisitor) visitEndpointCollection(e *EndpointCollectionEl
 			appName:                entry.appName,
 			endpointName:           entry.endpointName,
 			uptos:                  bbs,
-			senderPatterns:         makeStrSet(),
-			senderEndpointPatterns: makeStrSet(),
+			senderPatterns:         MakeStrSet(),
+			senderEndpointPatterns: MakeStrSet(),
 		}
 
 		e.Accept(v)
@@ -296,8 +296,8 @@ func (v *SequenceDiagramVisitor) visitEndpoint(e *EndpointElement) {
 	app := e.application(v.m)
 	endpoint := e.endpoint(app)
 
-	appPatterns := makeStrSetFromPatternsAttr(app.Attrs)
-	endPointPatterns := makeStrSetFromPatternsAttr(endpoint.Attrs)
+	appPatterns := MakeStrSetFromSpecificAttr("patterns", app.Attrs)
+	endPointPatterns := MakeStrSetFromSpecificAttr("patterns", endpoint.Attrs)
 
 	isHuman := appPatterns.Contains("human")
 	isHumanSender := e.senderPatterns.Contains("human")
@@ -307,7 +307,7 @@ func (v *SequenceDiagramVisitor) visitEndpoint(e *EndpointElement) {
 
 	if !((isHuman && sender == "[") || isCron) {
 		label := e.label(v, v.m, endpoint, endPointPatterns, isHuman, isHumanSender, needsInt)
-		icon := func(a strSet) string {
+		icon := func(a StrSet) string {
 			if a.Contains("cron") {
 				return "<&timer>"
 			}
@@ -398,9 +398,9 @@ func (v *SequenceDiagramVisitor) visitStatment(e *StatementElement) {
 func (v *SequenceDiagramVisitor) visitCall(e *StatementElement, i int, c *sysl.Call) {
 	isLastStmt := e.isLastStmt(i)
 	app := e.application(v.m)
-	stmtPatterns := makeStrSetFromPatternsAttr(e.stmts[i].Attrs)
-	senderPatterns := makeStrSetFromPatternsAttr(app.Attrs)
-	endpointPatterns := makeStrSetFromPatternsAttr(e.endpoint(app).Attrs)
+	stmtPatterns := MakeStrSetFromSpecificAttr("patterns", e.stmts[i].Attrs)
+	senderPatterns := MakeStrSetFromSpecificAttr("patterns", app.Attrs)
+	endpointPatterns := MakeStrSetFromSpecificAttr("patterns", e.endpoint(app).Attrs)
 
 	p := &EndpointElement{
 		fromApp:                app.GetName(),

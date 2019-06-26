@@ -1,4 +1,4 @@
-package integration
+package main
 
 import (
 	"fmt"
@@ -32,11 +32,6 @@ type IntsDiagramVisitor struct {
 	symbols       map[string]*_var
 	topSymbols    map[string]*_topVar
 	project       string
-}
-
-type _var struct {
-	label string
-	alias string
 }
 
 type _topVar struct {
@@ -95,7 +90,7 @@ func (v *IntsDiagramVisitor) VarManagerForComponent(appName string, nameMap map[
 
 	i := len(v.symbols)
 	alias := fmt.Sprintf("_%d", i)
-	attrs := getApplicationAttrs(v.mod, appName)
+	attrs := getAttrs(v.mod, appName)
 	attrs["appname"] = appName
 	label := utils.ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
 	s := &_var{
@@ -120,7 +115,7 @@ func (v *IntsDiagramVisitor) VarManagerForTopState(appName string) string {
 	i := len(v.topSymbols)
 	alias = fmt.Sprintf("_%d", i)
 
-	attrs = getApplicationAttrs(v.mod, appName)
+	attrs = getAttrs(v.mod, appName)
 	attrs["appname"] = appName
 	label = utils.ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
 	ts := &_topVar{
@@ -551,7 +546,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func getApplicationAttrs(m *sysl.Module, appName string) map[string]string {
+func getAttrs(m *sysl.Module, appName string) map[string]string {
 	val := map[string]string{}
 	if app, ok := m.Apps[appName]; ok {
 		attrs := app.Attrs
