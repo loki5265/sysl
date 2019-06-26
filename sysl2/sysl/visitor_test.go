@@ -182,7 +182,7 @@ func TestEndpointElementEndpointLabel(t *testing.T) {
 	}
 
 	// When
-	actual := e.label(l, m, &sysl.Endpoint{}, makeStrSet(), false, false, false)
+	actual := e.label(l, m, &sysl.Endpoint{}, MakeStrSet(), false, false, false)
 
 	// Then
 	assert.Equal(t, " ⬄ b", actual)
@@ -199,12 +199,12 @@ func TestEndpointElementEndpointLabelWithValidStmt(t *testing.T) {
 				Call: &sysl.Call{},
 			},
 		},
-		senderEndpointPatterns: makeStrSet(),
+		senderEndpointPatterns: MakeStrSet(),
 	}
 	l.On("LabelEndpoint", mock.Anything).Return("test")
 
 	// When
-	actual := e.label(l, m, &sysl.Endpoint{}, makeStrSet("a"), false, true, false)
+	actual := e.label(l, m, &sysl.Endpoint{}, MakeStrSet("a"), false, true, false)
 
 	// Then
 	l.AssertNumberOfCalls(t, "LabelEndpoint", 1)
@@ -222,12 +222,12 @@ func TestEndpointElementEndpointLabelWithValidStmtAndEmptyPatterns(t *testing.T)
 				Call: &sysl.Call{},
 			},
 		},
-		senderEndpointPatterns: makeStrSet(),
+		senderEndpointPatterns: MakeStrSet(),
 	}
 	l.On("LabelEndpoint", mock.Anything).Return("test")
 
 	// When
-	actual := e.label(l, m, &sysl.Endpoint{}, makeStrSet(), false, true, false)
+	actual := e.label(l, m, &sysl.Endpoint{}, MakeStrSet(), false, true, false)
 
 	// Then
 	l.AssertNumberOfCalls(t, "LabelEndpoint", 1)

@@ -149,15 +149,6 @@ func TestClone(t *testing.T) {
 	assert.NotEqual(t, a, b, "Unexpected result")
 }
 
-func TestUnion(t *testing.T) {
-	a := MakeStrSet("c", "b", "a", "e")
-	b := MakeStrSet("d", "b", "a", "e")
-
-	c := a.Union(b)
-	assert.Equal(t, 5, len(c), "Unexpected result")
-	assert.Equal(t, []string{"a", "b", "c", "d", "e"}, c.ToSortedSlice(), "Unexpected result")
-}
-
 func TestIntersection(t *testing.T) {
 	a := MakeStrSet("c", "b", "a", "e")
 	b := MakeStrSet("d", "b", "a", "e")
