@@ -6,23 +6,21 @@ import (
 	"testing"
 
 	"github.com/anz-bank/sysl/src/proto"
-	"github.com/anz-bank/sysl/sysl2/sysl/integration"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGenerateIntegrations(t *testing.T) {
 	m, _ := Parse("demo/simple/sysl-ints.sysl", "../../")
-	args := integration.MakeArgs("", "Project", false, false)
+	args := MakeArgs("", "Project", false, false)
 	apps := []string{"System1", "IntegratedSystem", "System2"}
-	highlights := utils.MakeStrSet("IntegratedSystem", "System1", "System2")
-	s1 := integration.MakeAppElement("IntegratedSystem", "integrated_endpoint_1")
-	t1 := integration.MakeAppElement("System1", "endpoint")
-	dep1 := integration.MakeAppDependency(s1, t1)
-	s2 := integration.MakeAppElement("IntegratedSystem", "integrated_endpoint_2")
-	t2 := integration.MakeAppElement("System2", "endpoint")
-	dep2 := integration.MakeAppDependency(s2, t2)
-	deps := []*integration.AppDependency{dep1, dep2}
+	highlights := MakeStrSet("IntegratedSystem", "System1", "System2")
+	s1 := MakeAppElement("IntegratedSystem", "integrated_endpoint_1")
+	t1 := MakeAppElement("System1", "endpoint")
+	dep1 := MakeAppDependency(s1, t1)
+	s2 := MakeAppElement("IntegratedSystem", "integrated_endpoint_2")
+	t2 := MakeAppElement("System2", "endpoint")
+	dep2 := MakeAppDependency(s2, t2)
+	deps := []*AppDependency{dep1, dep2}
 	endpt := &sysl.Endpoint{
 		Name: "_",
 		Stmt: []*sysl.Statement{
@@ -49,8 +47,8 @@ func TestGenerateIntegrations(t *testing.T) {
 			},
 		},
 	}
-	intsParam := integration.MakeIntsParam(apps, highlights, deps, m.GetApps()["Project"], endpt)
-	r := integration.GenerateView(args, intsParam, m)
+	intsParam := MakeIntsParam(apps, highlights, deps, m.GetApps()["Project"], endpt)
+	r := GenerateView(args, intsParam, m)
 
 	expected := `''''''''''''''''''''''''''''''''''''''''''
 ''                                      ''

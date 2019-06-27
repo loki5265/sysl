@@ -8,9 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/anz-bank/sysl/sysl2/sysl/integration"
-	"github.com/anz-bank/sysl/sysl2/sysl/seqs"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -25,24 +22,24 @@ func GenerateIntegrations(
 	if len(exclude) == 0 && project != "" {
 		exclude = append(exclude, project)
 	}
-	excludeStrSet := utils.MakeStrSet(exclude...)
-	ds := integration.NewDependencySet()
+	excludeStrSet := MakeStrSet(exclude...)
+	ds := NewDependencySet()
 	ds.CollectAppDependencies(mod)
 
 	// The "project" app that specifies the required view of the integration
 	app := mod.GetApps()[project]
-	of := seqs.MakeFormatParser(output)
+	of := MakeFormatParser(output)
 	// Interate over each endpoint within the selected project
 	for epname, endpt := range app.GetEndpoints() {
 		// build the set of excluded items
-		excludes := utils.MakeStrSetFromSpecificAttr("exclude", endpt.GetAttrs())
-		passthroughs := utils.MakeStrSetFromSpecificAttr("passthrough", endpt.GetAttrs())
+		excludes := MakeStrSetFromSpecificAttr("exclude", endpt.GetAttrs())
+		passthroughs := MakeStrSetFromSpecificAttr("passthrough", endpt.GetAttrs())
 		// endpt.stmt's "action" will conatain the "apps" whose integration is to be drawn
 		// each one of these will be placed into the "integration" list
-		integrations := utils.MakeStrSetFromActionStatement(endpt.GetStmt())
+		integrations := MakeStrSetFromActionStatement(endpt.GetStmt())
 
-		highlights := integration.FindApps(mod, excludeStrSet, integrations, ds, true)
-		apps := integration.FindApps(mod, excludeStrSet, highlights, ds, false)
+		highlights := FindApps(mod, excludeStrSet, integrations, ds, true)
+		apps := FindApps(mod, excludeStrSet, highlights, ds, false)
 		apps = apps.Difference(excludes)
 		apps = apps.Difference(passthroughs)
 		output_dir := of.FmtOutput(project, epname, endpt.GetLongName(), endpt.GetAttrs())
@@ -59,9 +56,9 @@ func GenerateIntegrations(
 		sort.Slice(dependencySet.Deps, func(i, j int) bool {
 			return strings.Compare(dependencySet.Deps[i].String(), dependencySet.Deps[j].String()) < 0
 		})
-		intsParam := integration.MakeIntsParam(apps.ToSlice(), highlights, dependencySet.Deps, app, endpt)
-		args := integration.MakeArgs(title, project, clustered, epa)
-		r[output_dir] = integration.GenerateView(args, intsParam, mod)
+		intsParam := MakeIntsParam(apps.ToSlice(), highlights, dependencySet.Deps, app, endpt)
+		args := MakeArgs(title, project, clustered, epa)
+		r[output_dir] = GenerateView(args, intsParam, mod)
 	}
 
 	return r

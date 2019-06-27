@@ -5,8 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/anz-bank/sysl/src/proto"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
+	sysl "github.com/anz-bank/sysl/src/proto"
 	"github.com/yale8848/stream"
 )
 
@@ -49,15 +48,15 @@ func (ds *DependencySet) Contains(dep *AppDependency) bool {
 	return false
 }
 
-func (dep *AppDependency) extractAppNames() utils.StrSet {
-	s := utils.StrSet{}
+func (dep *AppDependency) extractAppNames() StrSet {
+	s := StrSet{}
 	s.Insert(dep.Self.Name)
 	s.Insert(dep.Target.Name)
 	return s
 }
 
-func (dep *AppDependency) extractEndpoints() utils.StrSet {
-	s := utils.StrSet{}
+func (dep *AppDependency) extractEndpoints() StrSet {
+	s := StrSet{}
 	s.Insert(dep.Self.Endpoint)
 	s.Insert(dep.Target.Endpoint)
 	return s
@@ -118,7 +117,7 @@ func (cs *CallSlice) CollectCallStatements(stmts []*sysl.Statement) {
 	}
 }
 
-func FindApps(module *sysl.Module, excludes, integrations utils.StrSet, ds *DependencySet, highlight bool) utils.StrSet {
+func FindApps(module *sysl.Module, excludes, integrations StrSet, ds *DependencySet, highlight bool) StrSet {
 	r := []string{}
 	appReStr := toPattern(integrations.ToSlice())
 	re := regexp.MustCompile(appReStr)
@@ -140,12 +139,12 @@ func FindApps(module *sysl.Module, excludes, integrations utils.StrSet, ds *Depe
 				app := module.GetApps()[item]
 				if highlight {
 					if re.MatchString(item) &&
-						!hasPattern("human", utils.MakeStrSetFromSpecificAttr("patterns", app.GetAttrs()).ToSlice()) {
+						!hasPattern("human", MakeStrSetFromSpecificAttr("patterns", app.GetAttrs()).ToSlice()) {
 						r = append(r, item)
 					}
 					return true
 				}
-				if !hasPattern("human", utils.MakeStrSetFromSpecificAttr("patterns", app.GetAttrs()).ToSlice()) {
+				if !hasPattern("human", MakeStrSetFromSpecificAttr("patterns", app.GetAttrs()).ToSlice()) {
 					r = append(r, item)
 				}
 				return true
@@ -154,15 +153,15 @@ func FindApps(module *sysl.Module, excludes, integrations utils.StrSet, ds *Depe
 		return true
 	})
 
-	return utils.MakeStrSet(r...)
+	return MakeStrSet(r...)
 }
 
-func walkPassthrough(excludes, passthroughs utils.StrSet, dep *AppDependency, integrations *DependencySet, module *sysl.Module) {
+func walkPassthrough(excludes, passthroughs StrSet, dep *AppDependency, integrations *DependencySet, module *sysl.Module) {
 	target := dep.Target
 	targetName := target.Name
 	targetEndpoint := target.Endpoint
-	excludedApps := utils.MakeStrSet(targetName).Intersection(excludes)
-	undeterminedEps := utils.MakeStrSet(targetEndpoint).Intersection(utils.MakeStrSet(".. * <- *", "*"))
+	excludedApps := MakeStrSet(targetName).Intersection(excludes)
+	undeterminedEps := MakeStrSet(targetEndpoint).Intersection(MakeStrSet(".. * <- *", "*"))
 	//Add to integration array since all dependencies are determined.
 	if len(excludedApps) == 0 && len(undeterminedEps) == 0 {
 		integrations.Add(dep)
@@ -182,7 +181,7 @@ func walkPassthrough(excludes, passthroughs utils.StrSet, dep *AppDependency, in
 	}
 }
 
-func (ds *DependencySet) FindIntegrations(apps, excludes, passthroughs utils.StrSet, module *sysl.Module) *DependencySet {
+func (ds *DependencySet) FindIntegrations(apps, excludes, passthroughs StrSet, module *sysl.Module) *DependencySet {
 	integrations := NewDependencySet()
 	outboundDeps := NewDependencySet()
 	lenPassthroughs := len(passthroughs)
@@ -190,10 +189,10 @@ func (ds *DependencySet) FindIntegrations(apps, excludes, passthroughs utils.Str
 		appNames := dep.extractAppNames()
 		endpoints := dep.extractEndpoints()
 		isSubsection := isSub(appNames, apps)
-		isSelfSubsection := isSub(utils.MakeStrSet(dep.Self.Name), apps)
-		isTargetSubsection := isSub(utils.MakeStrSet(dep.Target.Name), passthroughs)
+		isSelfSubsection := isSub(MakeStrSet(dep.Self.Name), apps)
+		isTargetSubsection := isSub(MakeStrSet(dep.Target.Name), passthroughs)
 		interExcludes := appNames.Intersection(excludes)
-		interEndpoints := endpoints.Intersection(utils.MakeStrSet(".. * <- *", "*"))
+		interEndpoints := endpoints.Intersection(MakeStrSet(".. * <- *", "*"))
 		lenInterExcludes := len(interExcludes)
 		lenInterEndpoints := len(interEndpoints)
 		if isSubsection && lenInterExcludes == 0 && lenInterEndpoints == 0 {
@@ -226,7 +225,7 @@ func (ds *DependencySet) collectStatementDependencies(stmts []*sysl.Statement, a
 	for _, stat := range stmts {
 		switch c := stat.GetStmt().(type) {
 		case *sysl.Statement_Call:
-			targetName := utils.GetAppName(c.Call.GetTarget())
+			targetName := GetAppName(c.Call.GetTarget())
 			dep := MakeAppDependency(MakeAppElement(appname, epname), MakeAppElement(targetName, c.Call.GetEndpoint()))
 			ds.Add(dep)
 		case *sysl.Statement_Action, *sysl.Statement_Ret:
@@ -251,7 +250,7 @@ func (ds *DependencySet) collectStatementDependencies(stmts []*sysl.Statement, a
 	}
 }
 
-func isSub(child, parent utils.StrSet) bool {
+func isSub(child, parent StrSet) bool {
 	if len(child) == 0 && len(parent) == 0 {
 		return true
 	}

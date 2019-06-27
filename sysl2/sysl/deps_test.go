@@ -3,8 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/anz-bank/sysl/src/proto"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
+	sysl "github.com/anz-bank/sysl/src/proto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -238,9 +237,9 @@ func TestFindHighlightApps(t *testing.T) {
 	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
 	ds.Add(dep1)
 
-	excludes := utils.MakeStrSet("AppC", "AppD")
-	integrations := utils.MakeStrSet("AppA", "AppB")
-	expected := utils.MakeStrSet("AppA", "AppB")
+	excludes := MakeStrSet("AppC", "AppD")
+	integrations := MakeStrSet("AppA", "AppB")
+	expected := MakeStrSet("AppA", "AppB")
 
 	// When
 	actual := FindApps(mod, excludes, integrations, ds, true)
@@ -258,9 +257,9 @@ func TestFindNoneHighlightApps(t *testing.T) {
 	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
 	ds.Add(dep1)
 
-	excludes := utils.MakeStrSet("AppC", "AppD")
-	integrations := utils.MakeStrSet("AppA", "AppB")
-	expected := utils.MakeStrSet("AppA", "AppB")
+	excludes := MakeStrSet("AppC", "AppD")
+	integrations := MakeStrSet("AppA", "AppB")
+	expected := MakeStrSet("AppA", "AppB")
 
 	// When
 	actual := FindApps(mod, excludes, integrations, ds, false)
@@ -278,9 +277,9 @@ func TestNotFindNoneHighlightApps(t *testing.T) {
 	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
 	ds.Add(dep1)
 
-	excludes := utils.MakeStrSet("AppC", "AppD")
-	integrations := utils.MakeStrSet("AppE", "AppF")
-	expected := utils.MakeStrSet()
+	excludes := MakeStrSet("AppC", "AppD")
+	integrations := MakeStrSet("AppE", "AppF")
+	expected := MakeStrSet()
 
 	// When
 	actual := FindApps(mod, excludes, integrations, ds, false)
@@ -300,9 +299,9 @@ func TestFindIntegrations(t *testing.T) {
 	dep1 := MakeAppDependency(MakeAppElement("AppC", "EndptC"), MakeAppElement("AppD", "EndptD"))
 	ds.Add(dep1)
 
-	apps := utils.MakeStrSet("AppA", "AppB")
-	excludes := utils.MakeStrSet("AppC")
-	passthrough := utils.MakeStrSet("AppB", "AppE", "AppF")
+	apps := MakeStrSet("AppA", "AppB")
+	excludes := MakeStrSet("AppC")
+	passthrough := MakeStrSet("AppB", "AppE", "AppF")
 
 	dep2 := MakeAppDependency(tar, MakeAppElement("AppE", "EndptE"))
 	expected.Add(dep)
@@ -328,8 +327,8 @@ func TestDependencySet_ResolveDependencies(t *testing.T) {
 
 func TestSubWhenParentAndChildEmpty(t *testing.T) {
 	// Given
-	c := utils.MakeStrSet()
-	p := utils.MakeStrSet()
+	c := MakeStrSet()
+	p := MakeStrSet()
 	expected := true
 
 	// When
@@ -341,8 +340,8 @@ func TestSubWhenParentAndChildEmpty(t *testing.T) {
 
 func TestSubWhenParentEmpty(t *testing.T) {
 	// Given
-	c := utils.MakeStrSet("A")
-	p := utils.MakeStrSet()
+	c := MakeStrSet("A")
+	p := MakeStrSet()
 	expected := false
 
 	// When
@@ -354,8 +353,8 @@ func TestSubWhenParentEmpty(t *testing.T) {
 
 func TestSubWhenChildEmpty(t *testing.T) {
 	// Given
-	c := utils.MakeStrSet()
-	p := utils.MakeStrSet("A")
+	c := MakeStrSet()
+	p := MakeStrSet("A")
 	expected := true
 
 	// When

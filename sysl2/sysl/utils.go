@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/anz-bank/sysl/src/proto"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 )
 
 var (
@@ -228,7 +227,7 @@ func getAndFmtParam(s *sysl.Module, params []*sysl.Param) []string {
 		pn := ""
 		if refType := v.GetType().GetTypeRef(); refType != nil {
 			if ref := refType.GetRef(); ref != nil {
-				an = utils.GetAppName(ref.GetAppname())
+				an = GetAppName(ref.GetAppname())
 				pn = strings.Join(ref.GetPath(), ".")
 			}
 		}

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/anz-bank/sysl/src/proto"
-	"github.com/anz-bank/sysl/sysl2/sysl/utils"
 )
 
 type IntsParam struct {
@@ -92,7 +91,7 @@ func (v *IntsDiagramVisitor) VarManagerForComponent(appName string, nameMap map[
 	alias := fmt.Sprintf("_%d", i)
 	attrs := getAttrs(v.mod, appName)
 	attrs["appname"] = appName
-	label := utils.ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
+	label := ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
 	s := &_var{
 		label: label,
 		alias: alias,
@@ -117,7 +116,7 @@ func (v *IntsDiagramVisitor) VarManagerForTopState(appName string) string {
 
 	attrs = getAttrs(v.mod, appName)
 	attrs["appname"] = appName
-	label = utils.ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
+	label = ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
 	ts := &_topVar{
 		topLabel: label,
 		topAlias: alias,
@@ -153,7 +152,7 @@ func (v *IntsDiagramVisitor) VarManagerForState(name string) string {
 		}
 	}
 	attrs["appname"] = epName
-	label = utils.ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
+	label = ParseFmt(attrs, v.mod.Apps[v.project].GetAttrs()["appfmt"].GetS())
 	s := &_var{
 		label: label,
 		alias: alias,
@@ -200,7 +199,7 @@ func (v *IntsDiagramVisitor) buildClusterForStateView(deps []*AppDependency, res
 
 	for _, k := range keys {
 		v.VarManagerForTopState(k)
-		strSet := utils.MakeStrSet(clusters[k]...)
+		strSet := MakeStrSet(clusters[k]...)
 		for _, m := range strSet.ToSlice() {
 			v.VarManagerForState(k + " : " + m)
 		}
@@ -294,7 +293,7 @@ func (v *IntsDiagramVisitor) generateStateView(args *Args, viewParams viewParams
 			}
 		}
 
-		tgtPtrns := utils.MakeStrSet()
+		tgtPtrns := MakeStrSet()
 		if v.mod.Apps[matchApp].Endpoints[matchEp].Attrs["patterns"] != nil {
 			for _, v := range v.mod.Apps[matchApp].Endpoints[matchEp].Attrs["patterns"].GetA().Elt {
 				tgtPtrns.Insert(v.GetS())
@@ -335,7 +334,7 @@ func (v *IntsDiagramVisitor) generateStateView(args *Args, viewParams viewParams
 				if needsInt {
 					attrs["needs_int"] = strconv.FormatBool(needsInt)
 				}
-				label = utils.ParseFmt(attrs, params.app.Attrs["epfmt"].GetS())
+				label = ParseFmt(attrs, params.app.Attrs["epfmt"].GetS())
 			}
 		}
 
@@ -509,9 +508,9 @@ func GenerateView(args *Args, params *IntsParam, mod *sysl.Module) string {
 		"eplongname": params.endpt.LongName,
 	}
 	if appAttrs["title"].GetS() != "" {
-		diagramTitle = utils.ParseFmt(attrs, appAttrs["title"].GetS())
+		diagramTitle = ParseFmt(attrs, appAttrs["title"].GetS())
 	} else {
-		diagramTitle = utils.ParseFmt(attrs, args.title)
+		diagramTitle = ParseFmt(attrs, args.title)
 	}
 
 	viewParams := &viewParams{

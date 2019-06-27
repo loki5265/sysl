@@ -5,14 +5,13 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/anz-bank/sysl/sysl2/sysl/seqs"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGenerateSequenceDiagramsToFormatNameAttributes(t *testing.T) {
 	m, _ := Parse("sequence_diagram_name_format.sysl", "./tests/")
-	al := seqs.MakeFormatParser(`%(@status?<color red>%(appname)</color>|%(appname))`)
-	el := seqs.MakeFormatParser(`%(@status? <color green>%(epname)</color>|%(epname))`)
+	al := MakeFormatParser(`%(@status?<color red>%(appname)</color>|%(appname))`)
+	el := MakeFormatParser(`%(@status? <color green>%(epname)</color>|%(epname))`)
 	p := &sequenceDiagParam{}
 	p.endpoints = []string{"User <- Check Balance"}
 	p.AppLabeler = al
@@ -60,8 +59,8 @@ skinparam maxMessageSize 250
 
 func TestGenerateSequenceDiagramsToFormatComplexAttributes(t *testing.T) {
 	m, _ := Parse("sequence_diagram_name_format.sysl", "./tests/")
-	al := seqs.MakeFormatParser(`%(@status?<color red>%(appname)</color>|%(appname))`)
-	el := seqs.MakeFormatParser(`%(@status? <color green>%(epname)</color>|%(epname))`)
+	al := MakeFormatParser(`%(@status?<color red>%(appname)</color>|%(appname))`)
+	el := MakeFormatParser(`%(@status? <color green>%(epname)</color>|%(epname))`)
 	p := &sequenceDiagParam{}
 	p.endpoints = []string{"User <- Check Balance"}
 	p.AppLabeler = al

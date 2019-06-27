@@ -271,7 +271,7 @@ func TestSequenceDiagramVisitorVisit(t *testing.T) {
 	// Given
 	l := &labeler{}
 	w := MakeSequenceDiagramWriter(true, "skinparam maxMessageSize 250")
-	m := readModule("../tests/sequence_diagram_project.golden.json")
+	m := readModule("./tests/sequence_diagram_project.golden.json")
 	v := MakeSequenceDiagramVisitor(l, l, w, m)
 	e := MakeEndpointCollectionElement("Profile", []string{"WebFrontend <- RequestProfile"}, [][]string{})
 
@@ -315,7 +315,7 @@ func TestSequenceDiagramToFormatNameAttributesVisitorVisit(t *testing.T) {
 	al := MakeFormatParser(`%(@status?<color red>%(appname)</color>|%(appname))`)
 	el := MakeFormatParser(`%(@status? <color green>%(epname)</color>|%(epname))`)
 	w := MakeSequenceDiagramWriter(true, "skinparam maxMessageSize 250")
-	m := readModule("../tests/sequence_diagram_name_format.golden.json")
+	m := readModule("./tests/sequence_diagram_name_format.golden.json")
 	v := MakeSequenceDiagramVisitor(al, el, w, m)
 	e := MakeEndpointCollectionElement("Diagram", []string{"User <- Check Balance"}, [][]string{})
 
