@@ -15,8 +15,9 @@ type AppElement struct {
 }
 
 type AppDependency struct {
-	Self   *AppElement
-	Target *AppElement
+	Self      *AppElement
+	Target    *AppElement
+	Statement *sysl.Statement
 }
 
 type DependencySet struct {
@@ -67,7 +68,7 @@ func NewDependencySet() *DependencySet {
 }
 
 func MakeAppDependency(self, target *AppElement) *AppDependency {
-	return &AppDependency{self, target}
+	return &AppDependency{self, target, nil}
 }
 
 func MakeAppElement(name, endpoint string) *AppElement {
@@ -227,6 +228,7 @@ func (ds *DependencySet) collectStatementDependencies(stmts []*sysl.Statement, a
 		case *sysl.Statement_Call:
 			targetName := GetAppName(c.Call.GetTarget())
 			dep := MakeAppDependency(MakeAppElement(appname, epname), MakeAppElement(targetName, c.Call.GetEndpoint()))
+			dep.Statement = stat
 			ds.Add(dep)
 		case *sysl.Statement_Action, *sysl.Statement_Ret:
 			continue
