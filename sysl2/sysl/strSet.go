@@ -3,7 +3,7 @@ package main
 import (
 	"sort"
 
-	"github.com/anz-bank/sysl/src/proto"
+	sysl "github.com/anz-bank/sysl/src/proto"
 )
 
 type StrSet map[string]struct{}
@@ -18,14 +18,14 @@ func MakeStrSet(initial ...string) StrSet {
 	return s
 }
 
-func MakeStrSetFromSpecificAttr(attr string, attrs map[string]*sysl.Attribute) StrSet {
+func MakeStrSetFromAttr(attr string, attrs map[string]*sysl.Attribute) StrSet {
 	s := StrSet{}
 
 	if patterns, has := attrs[attr]; has {
 		if x := patterns.GetA(); x != nil {
 			for _, y := range x.Elt {
-				if v := y.GetS(); len(v) > 0 {
-					s.Insert(y.GetS())
+				if v, ok := y.Attribute.(*sysl.Attribute_S); ok {
+					s.Insert(v.S)
 				}
 			}
 		}
@@ -37,10 +37,8 @@ func MakeStrSetFromSpecificAttr(attr string, attrs map[string]*sysl.Attribute) S
 func MakeStrSetFromActionStatement(stmts []*sysl.Statement) StrSet {
 	s := StrSet{}
 	for _, stmt := range stmts {
-		if _, ok := stmt.Stmt.(*sysl.Statement_Action); ok {
-			if v := stmt.GetAction().GetAction(); len(v) > 0 {
-				s.Insert(v)
-			}
+		if a, ok := stmt.Stmt.(*sysl.Statement_Action); ok {
+			s.Insert(a.Action.Action)
 		}
 	}
 
@@ -113,8 +111,11 @@ func (s StrSet) Intersection(other StrSet) StrSet {
 	return out
 }
 
+// Returns the elements that only belong to s. If s is subset of other,
+// it would return an empty set. Just be aware that output may be one of
+// the inputs and when change the output, the input would also be changed.
 func (s StrSet) Difference(other StrSet) StrSet {
-	if len(other) == 0 {
+	if len(s) == 0 || len(other) == 0 {
 		return s
 	}
 	out := StrSet{}
@@ -126,4 +127,20 @@ func (s StrSet) Difference(other StrSet) StrSet {
 	}
 
 	return out
+}
+
+// Returns true if child set is a subset of parent set
+func (s StrSet) IsSubset(parent StrSet) bool {
+	if len(parent) == 0 {
+		return len(s) == 0
+	}
+	if len(parent) < len(s) {
+		return false
+	}
+	for k := range s {
+		if !parent.Contains(k) {
+			return false
+		}
+	}
+	return true
 }

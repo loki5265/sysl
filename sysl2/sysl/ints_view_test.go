@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anz-bank/sysl/src/proto"
+	sysl "github.com/anz-bank/sysl/src/proto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +14,7 @@ func TestVarManagerForComponent(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		symbols:       map[string]*_var{},
 	}
 
@@ -31,9 +31,9 @@ func TestVarManagerForComponentWithNameMap(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		symbols: map[string]*_var{
-			"appName": &_var{
+			"appName": {
 				alias: "_1",
 			},
 		},
@@ -54,9 +54,9 @@ func TestVarManagerForComponentWithExistingName(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		symbols: map[string]*_var{
-			"test": &_var{
+			"test": {
 				alias: "_1",
 			},
 		},
@@ -76,15 +76,15 @@ func TestVarManagerForState(t *testing.T) {
 		stringBuilder: &stringBuilder,
 		mod: &sysl.Module{
 			Apps: map[string]*sysl.Application{
-				"a": &sysl.Application{
+				"a": {
 					Endpoints: map[string]*sysl.Endpoint{
 						"b": nil,
 					},
 				},
 			},
 		},
-		highlights: map[string]struct{}{},
-		symbols:    map[string]*_var{},
+		drawableApps: map[string]struct{}{},
+		symbols:      map[string]*_var{},
 	}
 
 	//When
@@ -101,9 +101,9 @@ func TestVarManagerForStateWithExistingName(t *testing.T) {
 		stringBuilder: &stringBuilder,
 		mod: &sysl.Module{
 			Apps: map[string]*sysl.Application{
-				"a": &sysl.Application{
+				"a": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"b": &sysl.Endpoint{
+						"b": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
@@ -112,9 +112,9 @@ func TestVarManagerForStateWithExistingName(t *testing.T) {
 				},
 			},
 		},
-		highlights: map[string]struct{}{},
+		drawableApps: map[string]struct{}{},
 		symbols: map[string]*_var{
-			"a : b": &_var{
+			"a : b": {
 				alias: "_1",
 			},
 		},
@@ -133,7 +133,7 @@ func TestVarManagerForTopState(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		topSymbols:    map[string]*_topVar{},
 	}
 
@@ -150,9 +150,9 @@ func TestVarManagerForTopStateWithExistingName(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		topSymbols: map[string]*_topVar{
-			"a : b": &_topVar{
+			"a : b": {
 				topAlias: "_1",
 			},
 		},
@@ -172,18 +172,18 @@ func TestBuildClusterForStateView(t *testing.T) {
 		stringBuilder: &stringBuilder,
 		mod: &sysl.Module{
 			Apps: map[string]*sysl.Application{
-				"a": &sysl.Application{
+				"a": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"epa": &sysl.Endpoint{
+						"epa": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
 						},
 					},
 				},
-				"b": &sysl.Application{
+				"b": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"epb": &sysl.Endpoint{
+						"epb": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
@@ -192,17 +192,17 @@ func TestBuildClusterForStateView(t *testing.T) {
 				},
 			},
 		},
-		highlights: map[string]struct{}{},
-		topSymbols: map[string]*_topVar{},
-		symbols:    map[string]*_var{},
+		drawableApps: map[string]struct{}{},
+		topSymbols:   map[string]*_topVar{},
+		symbols:      map[string]*_var{},
 	}
-	deps := []*AppDependency{
-		&AppDependency{
-			Self: &AppElement{
+	deps := map[string]AppDependency{
+		"a:epa:b:epb": {
+			Self: AppElement{
 				Name:     "a",
 				Endpoint: "epa",
 			},
-			Target: &AppElement{
+			Target: AppElement{
 				Name:     "b",
 				Endpoint: "epb",
 			},
@@ -229,7 +229,7 @@ func TestBuildClusterForComponentView(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		topSymbols:    map[string]*_topVar{},
 		symbols:       map[string]*_var{},
 	}
@@ -249,13 +249,13 @@ func TestGenerateComponentView(t *testing.T) {
 	//Given
 	var stringBuilder strings.Builder
 	viewParams := &viewParams{}
-	deps := []*AppDependency{
-		&AppDependency{
-			Self: &AppElement{
+	deps := map[string]AppDependency{
+		"a:epa:b:epb": {
+			Self: AppElement{
 				Name:     "a",
 				Endpoint: "epa",
 			},
-			Target: &AppElement{
+			Target: AppElement{
 				Name:     "b",
 				Endpoint: "epb",
 			},
@@ -269,18 +269,18 @@ func TestGenerateComponentView(t *testing.T) {
 		stringBuilder: &stringBuilder,
 		mod: &sysl.Module{
 			Apps: map[string]*sysl.Application{
-				"a": &sysl.Application{
+				"a": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"epa": &sysl.Endpoint{
+						"epa": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
 						},
 					},
 				},
-				"b": &sysl.Application{
+				"b": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"epb": &sysl.Endpoint{
+						"epb": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
@@ -289,9 +289,9 @@ func TestGenerateComponentView(t *testing.T) {
 				},
 			},
 		},
-		highlights: map[string]struct{}{},
-		topSymbols: map[string]*_topVar{},
-		symbols:    map[string]*_var{},
+		drawableApps: map[string]struct{}{},
+		topSymbols:   map[string]*_topVar{},
+		symbols:      map[string]*_var{},
 	}
 
 	//When
@@ -309,8 +309,7 @@ skinparam component {
 [] as _0
 [] as _1
 _0 --> _1 <<indirect>>
-@enduml
-`, v.stringBuilder.String())
+@enduml`, v.stringBuilder.String())
 }
 
 func TestGenerateStateView(t *testing.T) {
@@ -327,88 +326,25 @@ func TestGenerateStateView(t *testing.T) {
 				},
 			},
 		},
-		{
-			Stmt: &sysl.Statement_Action{
-				Action: &sysl.Action{
-					Action: "Get",
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_Ret{
-				Ret: &sysl.Return{
-					Payload: "Return A",
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_Cond{
-				Cond: &sysl.Cond{
-					Stmt: []*sysl.Statement{
-						{
-							Stmt: &sysl.Statement_Call{
-								Call: &sysl.Call{
-									Target: &sysl.AppName{
-										Part: []string{"AppB"},
-									},
-									Endpoint: "EndptB",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_Loop{
-				Loop: &sysl.Loop{
-					Stmt: []*sysl.Statement{},
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_LoopN{
-				LoopN: &sysl.LoopN{
-					Stmt: []*sysl.Statement{},
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_Foreach{
-				Foreach: &sysl.Foreach{
-					Stmt: []*sysl.Statement{},
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_Group{
-				Group: &sysl.Group{
-					Stmt: []*sysl.Statement{},
-				},
-			},
-		},
-		{
-			Stmt: &sysl.Statement_Alt{
-				Alt: &sysl.Alt{
-					Choice: []*sysl.Alt_Choice{
-						{
-							Stmt: []*sysl.Statement{},
-						},
-					},
-				},
-			},
-		},
 	}
-	viewParams := &viewParams{}
-	deps := []*AppDependency{
-		&AppDependency{
-			Self: &AppElement{
+	viewParams := &viewParams{
+		diagramTitle:       "test",
+		highLightColor:     "blue",
+		arrowColor:         "red",
+		indirectArrowColor: "grey",
+	}
+	deps := map[string]AppDependency{
+		"a:epa:b:epb": {
+			Self: AppElement{
 				Name:     "a",
 				Endpoint: "epa",
 			},
-			Target: &AppElement{
+			Target: AppElement{
 				Name:     "b",
 				Endpoint: "epb",
+			},
+			Statement: &sysl.Statement{
+				Stmt: &sysl.Statement_Call{},
 			},
 		},
 	}
@@ -416,14 +352,13 @@ func TestGenerateStateView(t *testing.T) {
 		integrations: deps,
 		app:          &sysl.Application{},
 	}
-	args := &Args{}
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod: &sysl.Module{
 			Apps: map[string]*sysl.Application{
-				"a": &sysl.Application{
+				"a": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"epa": &sysl.Endpoint{
+						"epa": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
@@ -431,27 +366,38 @@ func TestGenerateStateView(t *testing.T) {
 						},
 					},
 				},
-				"b": &sysl.Application{
+				"b": {
 					Endpoints: map[string]*sysl.Endpoint{
-						"epb": &sysl.Endpoint{
+						"epb": {
 							Attrs: map[string]*sysl.Attribute{
 								"test": nil,
 							},
 						},
 					},
 				},
+				"test": {
+					Attrs: map[string]*sysl.Attribute{
+						"appfmt": {
+							Attribute: &sysl.Attribute_S{
+								S: "test",
+							},
+						},
+					},
+				},
 			},
 		},
-		highlights: map[string]struct{}{},
-		topSymbols: map[string]*_topVar{},
-		symbols:    map[string]*_var{},
+		project:      "test",
+		drawableApps: map[string]struct{}{},
+		topSymbols:   map[string]*_topVar{},
+		symbols:      map[string]*_var{},
 	}
 
 	//When
-	v.generateStateView(args, *viewParams, params)
+	v.generateStateView(*viewParams, params)
 
 	//Then
 	assert.Equal(t, `@startuml
+title test
 left to right direction
 scale max 16384 height
 hide empty description
@@ -459,29 +405,31 @@ skinparam state {
   BackgroundColor FloralWhite
   BorderColor Black
   ArrowColor Crimson
+  BackgroundColor<<highlight>> blue
+  ArrowColor red
+  ArrowColor<<indirect>> grey
 }
-state "" as X_0 {
-  state "" as _0
-  state "" as _1
+state "test" as X_0 {
+  state "test" as _0
+  state "test" as _1
 }
-state "" as X_1 {
-  state "" as _2
+state "test" as X_1 {
+  state "test" as _2
 }
-_0 -[#silver]-> _1
+_0 -[#grey]-> _1
 _1 -[#black]> _2 : 
-@enduml
-`, v.stringBuilder.String())
+@enduml`, v.stringBuilder.String())
 }
 
 func TestGenerateView(t *testing.T) {
 	//Given
-	deps := []*AppDependency{
-		&AppDependency{
-			Self: &AppElement{
+	deps := map[string]AppDependency{
+		"a:epa:b:epb": {
+			Self: AppElement{
 				Name:     "a",
 				Endpoint: "epa",
 			},
-			Target: &AppElement{
+			Target: AppElement{
 				Name:     "b",
 				Endpoint: "epb",
 			},
@@ -499,18 +447,18 @@ func TestGenerateView(t *testing.T) {
 	args := &Args{}
 	m := &sysl.Module{
 		Apps: map[string]*sysl.Application{
-			"a": &sysl.Application{
+			"a": {
 				Endpoints: map[string]*sysl.Endpoint{
-					"epa": &sysl.Endpoint{
+					"epa": {
 						Attrs: map[string]*sysl.Attribute{
 							"test": nil,
 						},
 					},
 				},
 			},
-			"b": &sysl.Application{
+			"b": {
 				Endpoints: map[string]*sysl.Endpoint{
-					"epb": &sysl.Endpoint{
+					"epb": {
 						Attrs: map[string]*sysl.Attribute{
 							"test": nil,
 						},
@@ -541,8 +489,7 @@ skinparam component {
 [] as _0
 [] as _1
 _0 --> _1 <<indirect>>
-@enduml
-`, result)
+@enduml`, result)
 }
 
 func TestDrawSystemView(t *testing.T) {
@@ -551,20 +498,20 @@ func TestDrawSystemView(t *testing.T) {
 	v := &IntsDiagramVisitor{
 		stringBuilder: &stringBuilder,
 		mod:           &sysl.Module{},
-		highlights:    map[string]struct{}{},
+		drawableApps:  map[string]struct{}{},
 		symbols: map[string]*_var{
-			"test": &_var{
+			"test": {
 				alias: "_1",
 			},
 		},
 	}
-	deps := []*AppDependency{
-		&AppDependency{
-			Self: &AppElement{
+	deps := map[string]AppDependency{
+		"a:epa:b:epb": {
+			Self: AppElement{
 				Name:     "a",
 				Endpoint: "epa",
 			},
-			Target: &AppElement{
+			Target: AppElement{
 				Name:     "b",
 				Endpoint: "epb",
 			},
@@ -594,18 +541,24 @@ _1 --> _2 <<indirect>>
 }
 
 func TestMakeIntsParam(t *testing.T) {
-	p := MakeIntsParam([]string{"a"},
+	p := &IntsParam{[]string{"a"},
 		map[string]struct{}{},
-		[]*AppDependency{},
-		&sysl.Application{}, &sysl.Endpoint{})
+		map[string]AppDependency{},
+		&sysl.Application{}, &sysl.Endpoint{}}
 
 	assert.NotNil(t, p)
 	assert.Equal(t, "a", p.apps[0])
 }
 
 func TestMakeArgs(t *testing.T) {
-	a := MakeArgs("a", "p", true, true)
+	a := &Args{"a", "p", true, true}
 
 	assert.NotNil(t, a)
 	assert.Equal(t, "a", a.title)
+}
+
+func TestStringInSlice(t *testing.T) {
+	s := []string{"a", "b"}
+
+	assert.True(t, stringInSlice("a", s))
 }

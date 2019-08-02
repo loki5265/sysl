@@ -1,70 +1,166 @@
 package main
 
 import (
-	"flag"
-	"io"
+	"fmt"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 
+	sysl "github.com/anz-bank/sysl/src/proto"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+type collectApplicationDependenciesState struct {
+	m            *sysl.Module
+	excludes     StrSet
+	passthroughs StrSet
+	drawableApps StrSet
+	apps         StrSet
+	deps         map[string]AppDependency
+}
+
+func collectApplicationDependencies(
+	mod *sysl.Module,
+	excludes, passthroughs, highlights, integrations StrSet,
+) (drawableApps, apps StrSet, dependencies map[string]AppDependency) {
+	v := &collectApplicationDependenciesState{
+		m:            mod,
+		excludes:     excludes,
+		passthroughs: passthroughs,
+		drawableApps: highlights,
+		apps:         highlights.Clone(),
+		deps:         map[string]AppDependency{},
+	}
+	applications := v.m.GetApps()
+	for app := range integrations {
+		for epname, endpt := range applications[app].GetEndpoints() {
+			v.handleStatement(app, epname, endpt.GetStmt())
+		}
+	}
+	return v.drawableApps, v.apps, v.deps
+}
+
+func (v *collectApplicationDependenciesState) handleStatement(appname, epname string, stmts []*sysl.Statement) {
+	for _, stmt := range stmts {
+		switch t := stmt.GetStmt().(type) {
+		case *sysl.Statement_Call:
+			targetName := getAppName(t.Call.GetTarget())
+			if added := v.addAppDependency(appname, epname, targetName, t.Call.Endpoint, stmt); added {
+				if v.passthroughs.Contains(targetName) && t.Call.Endpoint != ".. * <- *" {
+					v.handleStatement(targetName, t.Call.Endpoint, v.m.GetApps()[targetName].GetEndpoints()[t.Call.Endpoint].Stmt)
+				}
+			}
+		case *sysl.Statement_Action, *sysl.Statement_Ret:
+			continue
+		case *sysl.Statement_Cond:
+			v.handleStatement(appname, epname, t.Cond.GetStmt())
+		case *sysl.Statement_Loop:
+			v.handleStatement(appname, epname, t.Loop.GetStmt())
+		case *sysl.Statement_LoopN:
+			v.handleStatement(appname, epname, t.LoopN.GetStmt())
+		case *sysl.Statement_Foreach:
+			v.handleStatement(appname, epname, t.Foreach.GetStmt())
+		case *sysl.Statement_Group:
+			v.handleStatement(appname, epname, t.Group.GetStmt())
+		case *sysl.Statement_Alt:
+			for _, choice := range t.Alt.GetChoice() {
+				v.handleStatement(appname, epname, choice.GetStmt())
+			}
+		default:
+			panic("No statement!")
+		}
+	}
+}
+
+func (v *collectApplicationDependenciesState) addAppDependency(
+	sourceApp, sourceEndpt, targetApp, targetEndpt string,
+	stmt *sysl.Statement,
+) bool {
+	if sourceEndpt == ".. * <- *" || sourceEndpt == "*" {
+		return false
+	}
+	k := fmt.Sprintf("%s:%s:%s:%s", sourceApp, sourceEndpt, targetApp, targetEndpt)
+	if _, has := v.deps[k]; has {
+		return false
+	}
+	if v.excludes.Contains(sourceApp) || v.excludes.Contains(targetApp) {
+		return false
+	}
+	if v.drawableApps.Contains(sourceApp) || v.drawableApps.Contains(targetApp) {
+		if !HasPattern(v.m.GetApps()[sourceApp].GetAttrs(), "human") {
+			v.apps.Insert(sourceApp)
+		}
+		if !HasPattern(v.m.GetApps()[targetApp].GetAttrs(), "human") {
+			v.apps.Insert(targetApp)
+		}
+	}
+	if !((v.apps.Contains(sourceApp) && v.apps.Contains(targetApp)) ||
+		(v.apps.Contains(sourceApp) && v.passthroughs.Contains(targetApp)) ||
+		v.passthroughs.Contains(sourceApp)) {
+		return false
+	}
+	v.deps[k] = AppDependency{
+		Self:      AppElement{Name: sourceApp, Endpoint: sourceEndpt},
+		Target:    AppElement{Name: targetApp, Endpoint: targetEndpt},
+		Statement: stmt,
+	}
+	return true
+}
+
 func GenerateIntegrations(
-	root_model, title, output, project, filter, modules string,
-	exclude []string, clustered, epa bool,
+	rootModel, title, output, project, filter, modules string,
+	exclude []string,
+	clustered, epa bool,
 ) map[string]string {
 	r := make(map[string]string)
-	mod := loadApp(root_model, modules)
+
+	mod := loadApp(rootModel, modules)
 
 	if len(exclude) == 0 && project != "" {
-		exclude = append(exclude, project)
+		exclude = []string{project}
 	}
 	excludeStrSet := MakeStrSet(exclude...)
-	ds := NewDependencySet()
-	ds.CollectAppDependencies(mod)
 
 	// The "project" app that specifies the required view of the integration
 	app := mod.GetApps()[project]
 	of := MakeFormatParser(output)
 	// Interate over each endpoint within the selected project
 	for epname, endpt := range app.GetEndpoints() {
-		// build the set of excluded items
-		excludes := MakeStrSetFromSpecificAttr("exclude", endpt.GetAttrs())
-		passthroughs := MakeStrSetFromSpecificAttr("passthrough", endpt.GetAttrs())
-		// endpt.stmt's "action" will conatain the "apps" whose integration is to be drawn
-		// each one of these will be placed into the "integration" list
+		excludes := MakeStrSetFromAttr("exclude", endpt.GetAttrs())
+		passthroughs := MakeStrSetFromAttr("passthrough", endpt.GetAttrs())
 		integrations := MakeStrSetFromActionStatement(endpt.GetStmt())
-
-		highlights := FindApps(mod, excludeStrSet, integrations, ds, true)
-		apps := FindApps(mod, excludeStrSet, highlights, ds, false)
-		apps = apps.Difference(excludes)
-		apps = apps.Difference(passthroughs)
-		output_dir := of.FmtOutput(project, epname, endpt.GetLongName(), endpt.GetAttrs())
-
+		outputDir := of.FmtOutput(project, epname, endpt.GetLongName(), endpt.GetAttrs())
 		if filter != "" {
 			re := regexp.MustCompile(filter)
-			if !re.MatchString(output) {
+			if !re.MatchString(outputDir) {
 				continue
 			}
 		}
-
-		// invoke generate_view string
-		dependencySet := ds.FindIntegrations(apps, excludes, passthroughs, mod)
-		sort.Slice(dependencySet.Deps, func(i, j int) bool {
-			return strings.Compare(dependencySet.Deps[i].String(), dependencySet.Deps[j].String()) < 0
-		})
-		intsParam := MakeIntsParam(apps.ToSlice(), highlights, dependencySet.Deps, app, endpt)
-		args := MakeArgs(title, project, clustered, epa)
-		r[output_dir] = GenerateView(args, intsParam, mod)
+		drawableApps := findDrawableApps(mod, integrations)
+		drawableApps, apps, deps := collectApplicationDependencies(
+			mod, excludeStrSet.Union(excludes), passthroughs, drawableApps, integrations)
+		intsParam := &IntsParam{apps.ToSlice(), drawableApps, deps, app, endpt}
+		args := &Args{title, project, clustered, epa}
+		r[outputDir] = GenerateView(args, intsParam, mod)
 	}
 
 	return r
 }
 
-func DoGenerateIntegrations(stdout, stderr io.Writer, flags *flag.FlagSet, args []string) {
+func findDrawableApps(mod *sysl.Module, apps StrSet) StrSet {
+	drawable := StrSet{}
+	for appName := range apps {
+		app := mod.GetApps()[appName]
+		if !HasPattern(app.GetAttrs(), "human") {
+			drawable.Insert(appName)
+		}
+	}
+
+	return drawable
+}
+
+func DoGenerateIntegrations(args []string) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Errorln(err)
@@ -114,6 +210,9 @@ func DoGenerateIntegrations(stdout, stderr io.Writer, flags *flag.FlagSet, args 
 
 	r := GenerateIntegrations(*root, *title, *output, *project, *filter, *modules, *exclude, *clustered, *epa)
 	for k, v := range r {
-		OutputPlantuml(k, *plantuml, v)
+		err := OutputPlantuml(k, *plantuml, v)
+		if err != nil {
+			log.Errorf("plantuml drawing error: %v", err)
+		}
 	}
 }

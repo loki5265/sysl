@@ -6,18 +6,19 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/anz-bank/sysl/src/proto"
+	sysl "github.com/anz-bank/sysl/src/proto"
 )
 
+//nolint:gochecknoglobals
 var (
-	itemRE                   = regexp.MustCompile(`(%\(\w+\))`)
 	isoCtrlRE                = regexp.MustCompile("^iso_ctrl_(.*)_txt$")
 	returnTypeValueSpliterRE = regexp.MustCompile(`\s*<:\s*`)
 	typeSetOfRE              = regexp.MustCompile(`set\s+of\s+(.+)$`)
 	typeOneOfRE              = regexp.MustCompile(`one\s+of\s*{(.+)}$`)
 	typeListSpliterRE        = regexp.MustCompile(`\s*,\s*`)
 	endpointLabelReplaceRE   = regexp.MustCompile(`^.*? -> `)
-	endpointParserRE         = regexp.MustCompile(`(?P<appname>.*?)\s*<-\s*(?P<epname>.*?)(?:\s*\[upto\s+(?P<upto>.*)\])*$`)
+	endpointParserRE         = regexp.MustCompile(
+		`(?P<appname>.*?)\s*<-\s*(?P<epname>.*?)(?:\s*\[upto\s+(?P<upto>.*)\])*$`)
 )
 
 func TransformBlackBoxes(blackboxes []*sysl.Attribute) [][]string {
@@ -35,11 +36,11 @@ func TransformBlackBoxes(blackboxes []*sysl.Attribute) [][]string {
 	return bbs
 }
 
-func ParseBlackBoxesFromArgument(blackboxFlags []string) [][]string {
+func ParseBlackBoxesFromArgument(blackboxFlags map[string]string) [][]string {
 	bbs := make([][]string, 0, len(blackboxFlags))
-	for _, blackboxFlag := range blackboxFlags {
-		subBbs := strings.Split(blackboxFlag, ",")
-		if len(subBbs) > 0 {
+	for bbKey, bbComment := range blackboxFlags {
+		if len(bbKey) > 0 {
+			subBbs := []string{bbKey, bbComment}
 			bbs = append(bbs, subBbs)
 		}
 	}
@@ -59,16 +60,14 @@ func MergeAttributes(app, edpnt map[string]*sysl.Attribute) map[string]*sysl.Att
 	return result
 }
 
-func copyBlackboxes(bbs map[string]string) map[string]string {
-	m := make(map[string]string)
-	if bbs == nil {
-		return m
+func TransformBlackboxesToUptos(m map[string]*Upto, bbs [][]string, uptoType UptoType) {
+	for _, val := range bbs {
+		m[val[0]] = &Upto{
+			VisitCount: 0,
+			ValueType:  uptoType,
+			Comment:    val[1],
+		}
 	}
-	for k, v := range bbs {
-		m[k] = v
-	}
-
-	return m
 }
 
 func getApplicationAttrs(m *sysl.Module, appName string) map[string]*sysl.Attribute {
@@ -227,7 +226,7 @@ func getAndFmtParam(s *sysl.Module, params []*sysl.Param) []string {
 		pn := ""
 		if refType := v.GetType().GetTypeRef(); refType != nil {
 			if ref := refType.GetRef(); ref != nil {
-				an = GetAppName(ref.GetAppname())
+				an = getAppName(ref.GetAppname())
 				pn = strings.Join(ref.GetPath(), ".")
 			}
 		}

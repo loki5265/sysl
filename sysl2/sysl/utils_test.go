@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/anz-bank/sysl/src/proto"
+	sysl "github.com/anz-bank/sysl/src/proto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -69,6 +69,7 @@ func TestTransformBlackBoxes(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := TransformBlackBoxes(tt.args.blackboxes); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TransformBlackBoxes() = %v, want %v", got, tt.want)
@@ -79,7 +80,7 @@ func TestTransformBlackBoxes(t *testing.T) {
 
 func TestParseBlackBoxesFromArgument(t *testing.T) {
 	type args struct {
-		blackboxFlags []string
+		blackboxFlags map[string]string
 	}
 	tests := []struct {
 		name string
@@ -88,20 +89,22 @@ func TestParseBlackBoxesFromArgument(t *testing.T) {
 	}{
 		{
 			name: "Case-Null",
-			args: args{[]string{}},
+			args: args{map[string]string{}},
 			want: [][]string{},
 		},
 		{
 			name: "Case-ConvertSuccess",
-			args: args{[]string{"Value A,Value B", "Value C,Value D"}},
+			args: args{
+				map[string]string{"Value A": "Value B", "Value C": "Value D"},
+			},
 			want: [][]string{{"Value A", "Value B"}, {"Value C", "Value D"}},
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ParseBlackBoxesFromArgument(tt.args.blackboxFlags); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseBlackBoxesFromArgument() = %v, want %v", got, tt.want)
-			}
+			got := ParseBlackBoxesFromArgument(tt.args.blackboxFlags)
+			assert.ElementsMatch(t, got, tt.want)
 		})
 	}
 }
@@ -162,6 +165,7 @@ func TestMergeAttributes(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := MergeAttributes(tt.args.app, tt.args.edpnt); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("MergeAttributes() = %v, want %v", got, tt.want)
@@ -170,28 +174,30 @@ func TestMergeAttributes(t *testing.T) {
 	}
 }
 
-func TestCopyBlackboxes(t *testing.T) {
+func TestTransformBlackboxesToUptos(t *testing.T) {
 	// given
-	m := map[string]string{
-		"keyA": "value A",
+	bbs := map[string]*Upto{}
+	m := [][]string{
+		{"keyA", "value A"},
 	}
 
 	// when
-	r := copyBlackboxes(m)
+	TransformBlackboxesToUptos(bbs, m, BBApplication)
 
 	// then
-	assert.Equal(t, m, r, "unexpected map")
+	assert.Equal(t, m[0][1], bbs[m[0][0]].Comment)
 }
 
-func TestCopyBlackboxesByNil(t *testing.T) {
+func TestTransformBlackboxesToUptosByNil(t *testing.T) {
 	// given
-	var m map[string]string
+	bbs := map[string]*Upto{}
+	var m [][]string
 
 	// when
-	r := copyBlackboxes(m)
+	TransformBlackboxesToUptos(bbs, m, BBApplication)
 
 	// then
-	assert.NotNil(t, r)
+	assert.Empty(t, bbs)
 }
 
 func TestGetAppAttr(t *testing.T) {

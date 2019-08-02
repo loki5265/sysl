@@ -9,3 +9,7 @@ Project [appfmt="%(appname)"]:
     _:
         IntegratedSystem
         System1
+
+System2:
+    endpoint:
+        IntegratedSystem <- integrated_endpoint_1

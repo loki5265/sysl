@@ -4,10 +4,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/anz-bank/sysl/src/proto"
+	sysl "github.com/anz-bank/sysl/src/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -15,8 +16,9 @@ type mockVisitor struct {
 	mock.Mock
 }
 
-func (m *mockVisitor) Visit(e Element) {
+func (m *mockVisitor) Visit(e Element) error {
 	m.Called(e)
+	return nil
 }
 
 type elementSuite struct {
@@ -32,7 +34,7 @@ func (suite *elementSuite) SetupTest() {
 
 func (suite *elementSuite) TestElementAccept() {
 	t := suite.T()
-	suite.e.Accept(suite.v)
+	require.NoError(t, suite.e.Accept(suite.v))
 
 	suite.v.AssertCalled(t, "Visit", suite.e)
 	suite.v.AssertNumberOfCalls(t, "Visit", 1)
@@ -66,12 +68,9 @@ func TestMakeEntry(t *testing.T) {
 func TestMakeEndpointCollectionElement(t *testing.T) {
 	e := MakeEndpointCollectionElement("title",
 		[]string{"a <- b [upto b <- c]"},
-		[][]string{
-			{},
-			{"b <- c"},
-			{"c <- d", "test"},
-		})
-
+		map[string]*Upto{"": {Comment: ""},
+			"b <- c": {Comment: ""},
+			"c <- d": {Comment: "test"}})
 	assert.NotNil(t, e)
 	assert.Equal(t, "title", e.title)
 }
@@ -248,13 +247,15 @@ func TestStatementElementIsLastStmt(t *testing.T) {
 	assert.True(t, actual)
 }
 
-func readModule(p string) *sysl.Module {
+func readModule(p string) (*sysl.Module, error) {
 	m := &sysl.Module{}
 	f, _ := os.Open(p)
 
-	jsonpb.Unmarshal(f, m)
+	if err := jsonpb.Unmarshal(f, m); err != nil {
+		return nil, err
+	}
 
-	return m
+	return m, nil
 }
 
 type labeler struct{}
@@ -271,12 +272,29 @@ func TestSequenceDiagramVisitorVisit(t *testing.T) {
 	// Given
 	l := &labeler{}
 	w := MakeSequenceDiagramWriter(true, "skinparam maxMessageSize 250")
-	m := readModule("./tests/sequence_diagram_project.golden.json")
-	v := MakeSequenceDiagramVisitor(l, l, w, m)
-	e := MakeEndpointCollectionElement("Profile", []string{"WebFrontend <- RequestProfile"}, [][]string{})
+	m, err := readModule("./tests/sequence_diagram_project.golden.json")
+	require.NoError(t, err)
+	v := MakeSequenceDiagramVisitor(l, l, w, m, "appname")
+	e := MakeEndpointCollectionElement("Profile", []string{"WebFrontend <- RequestProfile"}, map[string]*Upto{
+		"Frontend <- Profile": {
+			ValueType:  BBEndpointCollection,
+			Comment:    "see below",
+			VisitCount: 0,
+		},
+		"ApplicationFrontend <- AppProfile": {
+			ValueType:  BBApplication,
+			Comment:    "see below",
+			VisitCount: 0,
+		},
+		"Commandline <- CommandlineApp": {
+			ValueType:  BBCommandLine,
+			Comment:    "see below",
+			VisitCount: 0,
+		},
+	})
 
 	// When
-	e.Accept(v)
+	require.NoError(t, e.Accept(v))
 
 	// Then
 	expected := `''''''''''''''''''''''''''''''''''''''''''
@@ -315,12 +333,13 @@ func TestSequenceDiagramToFormatNameAttributesVisitorVisit(t *testing.T) {
 	al := MakeFormatParser(`%(@status?<color red>%(appname)</color>|%(appname))`)
 	el := MakeFormatParser(`%(@status? <color green>%(epname)</color>|%(epname))`)
 	w := MakeSequenceDiagramWriter(true, "skinparam maxMessageSize 250")
-	m := readModule("./tests/sequence_diagram_name_format.golden.json")
-	v := MakeSequenceDiagramVisitor(al, el, w, m)
-	e := MakeEndpointCollectionElement("Diagram", []string{"User <- Check Balance"}, [][]string{})
+	m, err := readModule("./tests/sequence_diagram_name_format.golden.json")
+	require.NoError(t, err)
+	v := MakeSequenceDiagramVisitor(al, el, w, m, "appname")
+	e := MakeEndpointCollectionElement("Diagram", []string{"User <- Check Balance"}, map[string]*Upto{})
 
 	// When
-	e.Accept(v)
+	require.NoError(t, e.Accept(v))
 
 	// Then
 	expected := `''''''''''''''''''''''''''''''''''''''''''
@@ -358,4 +377,25 @@ title Diagram
 `
 
 	assert.Equal(t, expected, w.String())
+}
+
+func TestVisitStatement(t *testing.T) {
+	l := &labeler{}
+	w := MakeSequenceDiagramWriter(true, "skinparam maxMessageSize 250")
+	m, err := readModule("./tests/sequence_diagram_project.golden.json")
+	require.NoError(t, err)
+	v := MakeSequenceDiagramVisitor(l, l, w, m, "appname")
+	stmt := []*sysl.Statement{
+		{Stmt: &sysl.Statement_Loop{Loop: &sysl.Loop{Stmt: []*sysl.Statement{}}}},
+		{Stmt: &sysl.Statement_LoopN{LoopN: &sysl.LoopN{Stmt: []*sysl.Statement{}}}},
+		{Stmt: &sysl.Statement_Foreach{Foreach: &sysl.Foreach{Stmt: []*sysl.Statement{}}}},
+		{Stmt: &sysl.Statement_Alt{Alt: &sysl.Alt{Choice: []*sysl.Alt_Choice{{Stmt: []*sysl.Statement{}}}}}},
+		{Stmt: &sysl.Statement_Cond{Cond: &sysl.Cond{Stmt: []*sysl.Statement{}}}},
+		{Stmt: &sysl.Statement_Group{Group: &sysl.Group{Stmt: []*sysl.Statement{}}}},
+	}
+	e := &StatementElement{
+		stmts: stmt,
+	}
+	error := v.visitStatment(e)
+	assert.Nil(t, error)
 }
